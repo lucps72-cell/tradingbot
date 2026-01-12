@@ -1,0 +1,216 @@
+2026-01-12 02:55:43 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: cannot access local variable 'close' where it is not associated with a value
+2026-01-12 02:55:43 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\main.py", line 245, in main
+    new_trend, entry_key, close_key = determine_trend(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 3, got 2)
+
+2026-01-12 03:00:05 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: cannot access local variable 'close' where it is not associated with a value
+2026-01-12 03:00:05 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\main.py", line 245, in main
+    new_trend, entry_key, close_key = determine_trend(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 3, got 2)
+
+2026-01-12 03:00:21 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: cannot access local variable 'close' where it is not associated with a value
+2026-01-12 03:00:21 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\main.py", line 245, in main
+    new_trend, entry_key, close_key = determine_trend(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 3, got 2)
+
+2026-01-12 03:00:36 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: cannot access local variable 'close' where it is not associated with a value
+2026-01-12 03:00:36 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\main.py", line 245, in main
+    new_trend, entry_key, close_key = determine_trend(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 3, got 2)
+
+2026-01-12 03:00:51 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: cannot access local variable 'close' where it is not associated with a value
+2026-01-12 03:00:51 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\main.py", line 245, in main
+    new_trend, entry_key, close_key = determine_trend(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 3, got 2)
+
+2026-01-12 03:01:06 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: cannot access local variable 'close' where it is not associated with a value
+2026-01-12 03:01:06 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\main.py", line 245, in main
+    new_trend, entry_key, close_key = determine_trend(
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: not enough values to unpack (expected 3, got 2)
+
+2026-01-12 03:50:23 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\main.py", line 256, in main
+    logger.info(f"⚪ 추세 불명확: 대기 중 ({current_trend.upper()}) 유지)")
+                                            ^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'upper'
+
+2026-01-12 11:58:03 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 11:58:19 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 11:58:34 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 11:58:50 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 11:59:05 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 11:59:20 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 11:59:36 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 11:59:51 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:00:07 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:00:22 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:00:38 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:00:53 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:01:09 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:01:24 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:01:39 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:01:55 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:02:11 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:02:26 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:02:42 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:02:57 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:03:12 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:03:28 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:03:43 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:03:59 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:04:14 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:04:30 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:04:45 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:05:01 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:05:16 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:05:32 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:05:47 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:06:03 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:06:18 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:06:34 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:06:49 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:07:05 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:07:20 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:07:35 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:07:51 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:08:06 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:08:22 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:08:37 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:08:53 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:09:08 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:09:23 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:09:39 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:09:54 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:10:10 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:10:25 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:10:41 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:10:56 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:11:12 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:11:27 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:11:42 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:11:58 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:12:13 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:12:29 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:12:44 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:13:00 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:13:15 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:13:31 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:13:46 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:14:01 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:14:17 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:14:32 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:14:48 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:15:03 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:15:19 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:15:34 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:15:50 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:16:05 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:16:21 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:16:36 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:16:51 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:17:07 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:17:23 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:17:38 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:17:53 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:18:09 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:18:24 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:18:40 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:18:55 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:19:11 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:19:26 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:19:41 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:19:57 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:20:12 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:20:28 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:20:43 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:20:59 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:21:14 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:21:29 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:21:45 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:22:00 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:22:16 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:22:31 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:22:47 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:23:02 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:23:18 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:23:33 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:23:49 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:24:04 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:24:19 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:24:35 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:24:50 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:25:06 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:25:21 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:25:37 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:25:53 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:26:08 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:26:23 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:26:39 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:26:54 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:27:10 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:27:25 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:27:41 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:27:56 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:28:12 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:28:27 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:28:42 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:28:58 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:29:13 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:29:29 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:29:45 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:30:00 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:30:15 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:30:31 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:30:46 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:31:02 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:31:17 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:31:32 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:31:48 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:32:03 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:32:19 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:32:34 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:32:50 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:33:05 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 12:33:21 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:23:17 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:23:32 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:23:47 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:30:20 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:30:35 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:30:50 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:32:19 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:32:34 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:32:49 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:33:04 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:33:25 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:33:40 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:37:36 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:37:51 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:38:07 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:39:27 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:39:42 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:41:08 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:41:23 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:41:38 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:41:53 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:42:09 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:42:24 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:42:48 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:47:15 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:47:30 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 20:47:45 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 21:22:05 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 21:23:27 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
+2026-01-12 21:25:52 - aibot_v2.trend_strategy - ERROR - 추세/진입 결정 오류: The truth value of a Series is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().

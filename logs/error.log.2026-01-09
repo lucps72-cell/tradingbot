@@ -1,0 +1,125 @@
+2026-01-09 23:43:56 - tradingbot - ERROR - TP/SL 조회 실패: Authenticated endpoints require keys.
+2026-01-09 23:43:56 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\position_manager.py", line 606, in get_tp_sl_for_side
+    resp = session.get_positions(category="linear", symbol=market_id)
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_v5_position.py", line 22, in get_positions
+    return self._submit_request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        method="GET",
+        ^^^^^^^^^^^^^
+    ...<2 lines>...
+        auth=True,
+        ^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 189, in _submit_request
+    headers = self._prepare_headers(req_params, recv_window) if auth else {}
+              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 225, in _prepare_headers
+    signature = self._auth(payload=payload, recv_window=recv_window, timestamp=timestamp)
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 169, in _auth
+    raise PermissionError("Authenticated endpoints require keys.")
+PermissionError: Authenticated endpoints require keys.
+
+2026-01-09 23:43:56 - aibot_v2.trend_strategy - ERROR - 시장 분석 실패: 'ema'
+2026-01-09 23:43:56 - aibot_v2.trend_strategy - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\trend_strategy.py", line 209, in signal_decision
+    indicators = technical_indicators.calculate_all_indicators(higher_dfs[tf], config)
+  File "C:\tradingbot\aibot_v2\technical_indicators.py", line 415, in calculate_all_indicators
+    ema_fast = calculate_ema(close, config['strategy']['ema']['fast'])
+                                    ~~~~~~~~~~~~~~~~~~^^^^^^^
+KeyError: 'ema'
+
+2026-01-09 23:50:44 - tradingbot - ERROR - TP/SL 조회 실패: Authenticated endpoints require keys.
+2026-01-09 23:50:44 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\position_manager.py", line 606, in get_tp_sl_for_side
+    resp = session.get_positions(category="linear", symbol=market_id)
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_v5_position.py", line 22, in get_positions
+    return self._submit_request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        method="GET",
+        ^^^^^^^^^^^^^
+    ...<2 lines>...
+        auth=True,
+        ^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 189, in _submit_request
+    headers = self._prepare_headers(req_params, recv_window) if auth else {}
+              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 225, in _prepare_headers
+    signature = self._auth(payload=payload, recv_window=recv_window, timestamp=timestamp)
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 169, in _auth
+    raise PermissionError("Authenticated endpoints require keys.")
+PermissionError: Authenticated endpoints require keys.
+
+2026-01-09 23:50:48 - tradingbot - ERROR - 거래 실행 실패: Config file not found: config.json
+2026-01-09 23:56:16 - tradingbot - ERROR - TP/SL 조회 실패: Authenticated endpoints require keys.
+2026-01-09 23:56:16 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\position_manager.py", line 606, in get_tp_sl_for_side
+    resp = session.get_positions(category="linear", symbol=market_id)
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_v5_position.py", line 22, in get_positions
+    return self._submit_request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        method="GET",
+        ^^^^^^^^^^^^^
+    ...<2 lines>...
+        auth=True,
+        ^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 189, in _submit_request
+    headers = self._prepare_headers(req_params, recv_window) if auth else {}
+              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 225, in _prepare_headers
+    signature = self._auth(payload=payload, recv_window=recv_window, timestamp=timestamp)
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 169, in _auth
+    raise PermissionError("Authenticated endpoints require keys.")
+PermissionError: Authenticated endpoints require keys.
+
+2026-01-09 23:56:31 - tradingbot - ERROR - TP/SL 조회 실패: Authenticated endpoints require keys.
+2026-01-09 23:56:31 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\position_manager.py", line 606, in get_tp_sl_for_side
+    resp = session.get_positions(category="linear", symbol=market_id)
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_v5_position.py", line 22, in get_positions
+    return self._submit_request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        method="GET",
+        ^^^^^^^^^^^^^
+    ...<2 lines>...
+        auth=True,
+        ^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 189, in _submit_request
+    headers = self._prepare_headers(req_params, recv_window) if auth else {}
+              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 225, in _prepare_headers
+    signature = self._auth(payload=payload, recv_window=recv_window, timestamp=timestamp)
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 169, in _auth
+    raise PermissionError("Authenticated endpoints require keys.")
+PermissionError: Authenticated endpoints require keys.
+
+2026-01-09 23:56:47 - tradingbot - ERROR - TP/SL 조회 실패: Authenticated endpoints require keys.
+2026-01-09 23:56:47 - tradingbot - ERROR - Traceback (most recent call last):
+  File "C:\tradingbot\aibot_v2\position_manager.py", line 606, in get_tp_sl_for_side
+    resp = session.get_positions(category="linear", symbol=market_id)
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_v5_position.py", line 22, in get_positions
+    return self._submit_request(
+           ~~~~~~~~~~~~~~~~~~~~^
+        method="GET",
+        ^^^^^^^^^^^^^
+    ...<2 lines>...
+        auth=True,
+        ^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 189, in _submit_request
+    headers = self._prepare_headers(req_params, recv_window) if auth else {}
+              ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 225, in _prepare_headers
+    signature = self._auth(payload=payload, recv_window=recv_window, timestamp=timestamp)
+  File "C:\Users\neoluc\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\pybit\_http_manager.py", line 169, in _auth
+    raise PermissionError("Authenticated endpoints require keys.")
+PermissionError: Authenticated endpoints require keys.
+
