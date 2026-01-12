@@ -1,0 +1,68 @@
+{
+  "trading": {
+    "symbol": "ETHUSDT",
+    "leverage": -1,
+    "order_amount": 5000,
+    "sl_ratio": 0.10,
+    "tp_ratio": 0.60,
+    "order_type": "limit",
+    "min_order_usdt": 100.0
+  },
+  "backtest_timeframe": "5m",
+  "rsi_thresholds": {
+    "long": {
+      "1m": 30, 
+      "5m": 40,
+      "15m": 50, 
+      "1h": 60,
+      "1d": 30
+    },
+    "short": {
+      "1m": 70,
+      "5m": 60,
+      "15m": 50, 
+      "1h": 40,
+      "1d": 70
+    }
+  },
+  "price_filters": {
+    "daily_position_low_percent": 30,
+    "daily_position_high_percent": 70,
+    "min_trade_interval_seconds": 60
+  },
+  "risk_management": {
+    "max_drawdown_percent": 5.0,
+    "daily_loss_limit_percent": 3.0,
+    "daily_loss_limit_usdt": null,
+    "max_consecutive_losses": 5,
+    "enable_dynamic_sizing": true,
+    "base_position_size": 5000,
+    "min_position_size": 1000,
+    "max_position_size": 10000,
+    "risk_level_low": 3.0,
+    "risk_level_medium": 5.0,
+    "risk_level_high": 8.0
+  },
+  "bot_settings": {
+    "loop_interval_seconds": 20,
+    "cache_ttl_seconds": 30,
+    "stats_display_interval": 10,
+    "auto_close_orphaned_positions": false
+  },
+  "logging": {
+    "log_dir": "logs",
+    "log_level": "INFO"
+  },
+  "exchange": {
+    "name": "bybit",
+    "enable_rate_limit": true,
+    "default_type": "swap"
+  },
+  "timeframes": [
+    "1m",
+    "5m",
+    "15m",
+    "1h",
+    "1d"
+  ]
+}
