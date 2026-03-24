@@ -21,19 +21,23 @@ function Should-IgnorePath {
         return $true
     }
 
-    $relativePath = $fullPath.Replace($repoRoot + [System.IO.Path]::DirectorySeparatorChar, '')
+    $resolvedPath = [System.IO.Path]::GetFullPath($fullPath)
+    if (-not $resolvedPath.StartsWith($repoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $true
+    }
+
+    $relativePath = $resolvedPath.Substring($repoRoot.Length).TrimStart('\\', '/')
+    if (-not $relativePath) {
+        return $true
+    }
+
     $normalizedPath = $relativePath -replace '\\', '/'
+    if ($normalizedPath.StartsWith('.git/')) {
+        return $true
+    }
 
-    if ($normalizedPath.StartsWith('.git/')) { return $true }
-    if ($normalizedPath.StartsWith('.vscode/')) { return $true }
-    if ($normalizedPath.StartsWith('logs/')) { return $true }
-    if ($normalizedPath.Contains('/logs/')) { return $true }
-    if ($normalizedPath.StartsWith('__pycache__/')) { return $true }
-    if ($normalizedPath.Contains('/__pycache__/')) { return $true }
-    if ($normalizedPath -like '*.pyc') { return $true }
-    if ($normalizedPath -eq 'auto_push.log') { return $true }
-
-    return $false
+    & git check-ignore -q -- "$normalizedPath"
+    return ($LASTEXITCODE -eq 0)
 }
 
 function Get-RelevantStatusLines {
@@ -54,6 +58,42 @@ function Get-RelevantStatusLines {
 
         -not (Should-IgnorePath (Join-Path $repoRoot $pathPart))
     })
+}
+
+function Get-RelevantFileSignature {
+    $fileLines = & git ls-files -co --exclude-standard
+    if ($LASTEXITCODE -ne 0) {
+        Write-Status 'git ls-files failed.'
+        return ''
+    }
+
+    $entries = New-Object System.Collections.Generic.List[string]
+
+    foreach ($relativePath in $fileLines) {
+        if (-not $relativePath) {
+            continue
+        }
+
+        $fullPath = Join-Path $repoRoot $relativePath
+        if (Should-IgnorePath $fullPath) {
+            continue
+        }
+
+        if (Test-Path $fullPath -PathType Leaf) {
+            $item = Get-Item $fullPath
+            $entries.Add(($relativePath -replace '\\', '/') + '|' + $item.LastWriteTimeUtc.Ticks)
+        }
+        else {
+            $entries.Add(($relativePath -replace '\\', '/') + '|missing')
+        }
+    }
+
+    $statusLines = Get-RelevantStatusLines
+    foreach ($line in $statusLines) {
+        $entries.Add('status|' + $line)
+    }
+
+    return (($entries | Sort-Object -Unique) -join "`n")
 }
 
 function Invoke-AutoPush {
@@ -102,21 +142,19 @@ function Invoke-AutoPush {
     }
 }
 
-$baselineLines = Get-RelevantStatusLines
-$baselineSignature = ($baselineLines -join "`n")
+$baselineSignature = Get-RelevantFileSignature
 $pendingSignature = $null
 $pendingSince = $null
 
 Write-Status 'Auto push watcher started. Saving files will trigger git add/commit/push.'
 if ($baselineSignature) {
-    Write-Status 'Existing local changes detected at startup. They will not be auto-pushed until they change again.'
+    Write-Status 'Existing files were recorded as baseline. Saving any non-ignored file will trigger auto-push.'
 }
 
 while ($true) {
     Start-Sleep -Seconds $script:pollSeconds
 
-    $currentLines = Get-RelevantStatusLines
-    $currentSignature = ($currentLines -join "`n")
+    $currentSignature = Get-RelevantFileSignature
 
     if ($currentSignature -eq $baselineSignature) {
         $pendingSignature = $null
@@ -142,7 +180,7 @@ while ($true) {
     }
 
     Invoke-AutoPush
-    $baselineSignature = ((Get-RelevantStatusLines) -join "`n")
+    $baselineSignature = Get-RelevantFileSignature
     $pendingSignature = $null
     $pendingSince = $null
 }
