@@ -26,7 +26,7 @@ function Should-IgnorePath {
         return $true
     }
 
-    $relativePath = $resolvedPath.Substring($repoRoot.Length).TrimStart('\\', '/')
+    $relativePath = $resolvedPath.Substring($repoRoot.Length).TrimStart([char[]]@('\\', '/'))
     if (-not $relativePath) {
         return $true
     }
