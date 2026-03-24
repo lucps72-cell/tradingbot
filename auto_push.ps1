@@ -21,12 +21,18 @@ function Should-IgnorePath {
         return $true
     }
 
-    $resolvedPath = [System.IO.Path]::GetFullPath($fullPath)
-    if (-not $resolvedPath.StartsWith($repoRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+    $candidatePath = $fullPath.Trim().Trim('"')
+    if (-not $candidatePath) {
         return $true
     }
 
-    $relativePath = $resolvedPath.Substring($repoRoot.Length).TrimStart([char[]]@('\\', '/'))
+    if ([System.IO.Path]::IsPathRooted($candidatePath)) {
+        $relativePath = $candidatePath.Substring($repoRoot.Length).TrimStart([char[]]@('\', '/'))
+    }
+    else {
+        $relativePath = $candidatePath.TrimStart([char[]]@('\', '/'))
+    }
+
     if (-not $relativePath) {
         return $true
     }
@@ -36,12 +42,12 @@ function Should-IgnorePath {
         return $true
     }
 
-    & git check-ignore -q -- "$normalizedPath"
+    & git -c core.quotepath=false check-ignore -q -- "$normalizedPath"
     return ($LASTEXITCODE -eq 0)
 }
 
 function Get-RelevantStatusLines {
-    $statusLines = git status --short
+    $statusLines = & git -c core.quotepath=false status --short
     if ($LASTEXITCODE -ne 0) {
         Write-Status 'git status failed.'
         return @()
@@ -61,7 +67,7 @@ function Get-RelevantStatusLines {
 }
 
 function Get-RelevantFileSignature {
-    $fileLines = & git ls-files -co --exclude-standard
+    $fileLines = & git -c core.quotepath=false ls-files -co --exclude-standard
     if ($LASTEXITCODE -ne 0) {
         Write-Status 'git ls-files failed.'
         return ''
