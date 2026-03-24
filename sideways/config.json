@@ -1,0 +1,153 @@
+{
+  "_comment_exchange": "거래소 정보 (이름, API 키, 테스트넷 등)",
+  "exchange": {
+    "name": "bybit",
+    "api_key": "",
+    "api_secret": "",
+    "testnet": false
+  },
+  "trading": {
+    "_comment_trading": "트레이딩 관련 설정: amount_mode(notional 레버리지 미사용, margin 레버리지 사용), max_position_pct 최대 주문 비중(예: 0.1 = 10%)",
+    "entry_cooldown_sec": 40,
+    "entry_split_count": 3,
+    "symbol": "XRP/USDT:USDT",
+    "trade_type": "swap",
+    "leverage": 50,
+    "position_mode": "hedge",
+    "amount_mode": "margin",
+    "order_amount_usdt": 150,
+    "max_positions": 1,
+    "allow_same_position": true,
+    "auto_close_opposite": true,
+    "read_only_mode": true,
+    "max_position_pct": 0.15
+  },
+  "risk_management": {
+    "_comment_risk_management": "리스크 관리 설정 (SL/TP, 트레일링, 손실제한 등)",
+    "sl_ratio": 0.005,
+    "tp_ratio": 0.03,
+    "tp_mode": "hybrid",
+    "risk_reward_ratio": 2.0,
+    "use_trailing_stop": true,
+    "trailing_stop_activation": 0.01,
+    "trailing_stop_distance": 0.0015,
+    "use_profit_trailing": true,
+    "profit_trailing_activation": 0.015,
+    "profit_trailing_drawdown": 0.002,
+    "max_daily_loss": 0.05,
+    "max_drawdown": 0.15,
+    "position_timeout_hours": 48,
+    "use_atr_sl": true,
+    "atr_period": 14,
+    "atr_multiplier": 2.0,
+    "adx_period": 14,
+    "adx_threshold": 20
+  },
+  "strategy": {
+    "_comment_strategy": "전략 관련 설정 (이름, 타입, 인디케이터, 파라미터 등)",
+    "name": "multi_timeframe_trend_following",
+    "strategy_type": "scalping",
+    "timeframes": {
+      "_comment_timeframes": "멀티타임프레임 설정 (상위/하위/트리거)",
+      "higher_trend": [
+        "5m"
+      ],
+      "lower_signal": [
+        "1m"
+      ],
+      "entry_trigger": "1m"
+    },
+    "trend_indicators": {
+      "_comment_trend_indicators": "추세 인디케이터 사용 여부 및 최소 동의 수",
+      "min_agreement": 1,
+      "use_price_structure": true,
+      "use_ema": true,
+      "use_bollinger": true,
+      "use_rsi": true
+    },
+    "trend_ema": {
+      "_comment_trend_ema": "추세 판별용 EMA 파라미터 (fast, medium, slow)",
+      "first": 5,
+      "second": 14,
+      "third": 50,
+      "fourth": 120,
+      "fifth": 200
+    },
+    "signal_ema": {
+      "_comment_signal_ema": "진입 신호용 EMA 파라미터 (fast, medium, slow)",
+      "first": 3,
+      "second": 7,
+      "third": 14,
+      "fourth": 28,
+      "fifth": 50
+    },
+    "bollinger_bands": {
+      "_comment_bollinger_bands": "볼린저밴드 파라미터 (기간, 표준편차)",
+      "period": 20,
+      "std_dev": 2.0
+    },
+    "rsi": {
+      "_comment_rsi": "RSI 파라미터 (기간, 과매수/과매도, 다이버전스 등)",
+      "period": 14,
+      "overbought": 70,
+      "oversold": 30,
+      "midline": 50,
+      "use_divergence": true,
+      "divergence_lookback": 4
+    },
+    "price_structure": {
+      "_comment_price_structure": "가격 구조(스윙, 구조전환) 관련 파라미터",
+      "lookback_candles": 10,
+      "min_swing_size": 0.002
+    },
+    "volume": {
+      "_comment_volume": "거래량 관련 파라미터 (스파이크, 이동평균 등)",
+      "use_confirmation": true,
+      "volume_ma_period": 30,
+      "volume_spike_threshold": 1.2
+    },
+    "entry_confirmation": {
+      "_comment_entry_confirmation": "require_volume_spike: 거래량 스파이크 필수, require_ema_support: EMA 지지/저항 필수, require_higher_low: 구조전환(HL) 필수 여부",
+      "require_volume_spike": true,
+      "require_ema_support": false,
+      "require_higher_low": false
+    },
+    "trend_filter": {
+      "_comment_trend_filter": "추세 필터링 관련 옵션 (역추세 차단 등)",
+      "enable": true,
+      "block_counter_trend": true,
+      "min_trend_strength": 0.002
+    },
+    "_comment_entry_mode": "conservative(보수적, 신호필터링) | aggressive(공격적, 추세전환즉시진입)",
+    "entry_mode": "aggressive"
+  },
+  "backtest": {
+    "_comment_backtest": "백테스트 관련 설정 (기간, 초기자본, 수수료 등)",
+    "enabled": false,
+    "days": 30,
+    "initial_balance": 10000,
+    "commission_rate": 0.0006,
+    "max_bars": 720,
+    "fee_ratio": 0.0005,
+    "slippage": 0.001
+  },
+  "logging": {
+    "_comment_logging": "로깅 관련 설정 (레벨, 콘솔/파일 출력 등)",
+    "level": "INFO",
+    "console_output": true,
+    "file_output": true,
+    "log_trades": true,
+    "log_indicators": false
+  },
+  "api": {
+    "_comment_api": "API 호출 관련 설정 (레이트리밋, 재시도 등)",
+    "rate_limit_delay": 0.2,
+    "max_retries": 3,
+    "timeout": 10
+  },
+  "loop": {
+    "_comment_loop": "루프/주기 관련 설정 (체크 주기, 캐시 TTL 등)",
+    "check_interval": 12,
+    "indicator_cache_ttl": 60
+  }
+}
