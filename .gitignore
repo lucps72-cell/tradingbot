@@ -5,6 +5,8 @@ __pycache__/
 *.pyc
 .env
 .env.*
+!.env.example
 **/.env
 **/.env.*
+!**/.env.example
 .venv/
