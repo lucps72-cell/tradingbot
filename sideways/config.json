@@ -20,7 +20,7 @@
     "allow_same_position": true,
     "auto_close_opposite": true,
     "read_only_mode": true,
-    "max_position_pct": 0.17
+    "max_position_pct": 0.16
   },
   "risk_management": {
     "_comment_risk_management": "리스크 관리 설정 (SL/TP, 트레일링, 손실제한 등)",
