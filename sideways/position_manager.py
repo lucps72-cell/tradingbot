@@ -906,7 +906,7 @@ class PositionManager:
             logger: 로깅 인스턴스
         """
         try:
-            logger.info("get_all_positions | 포지션 데이터 없음")
+            logger.info("get_all_positions | start...")
             positions = self.get_all_positions(exchange, symbol)
             if not positions or not isinstance(positions, tuple) or len(positions) != 2:
                 logger.info("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
@@ -916,6 +916,7 @@ class PositionManager:
             logger.info(f"⚪ 포지션 상태 : unpack 에러 또는 NoneType - {e}")
             return
         
+            logger.info(f"positions | {positions}")
 
         current_price = self.get_current_price(exchange, symbol)
 
