@@ -915,7 +915,9 @@ class PositionManager:
                 active_logger.warning(f"전체 포지션 조회 실패, 기본 심볼로 재시도합니다. ({fetch_all_error})")
                 raw_positions = exchange.fetch_positions([symbol], params={"recv_window": 30000})
 
+            active_logger.debug(f"fetch_positions 원본 데이터: {raw_positions}")
             active_positions = {}
+            
             for pos in raw_positions or []:
                 pos_symbol = pos.get('symbol') or symbol
                 side = pos.get('side')
