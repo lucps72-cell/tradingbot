@@ -27,7 +27,6 @@ from dotenv import load_dotenv
 
 # Local imports
 from sideways.log_config import setup_logging
-from sideways.sideways_strategy import SidewaysStrategy
 from sideways.common import is_time_between
 from sideways.color_utils import Colors
 from sideways.config_loader import load_config
