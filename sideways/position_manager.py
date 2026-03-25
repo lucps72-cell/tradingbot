@@ -1046,7 +1046,7 @@ class PositionManager:
         fee = fee if fee is not None else 0.0
 
         #logger.info(f"{Colors.BRIGHT_MAGENTA}[24h실현손익] LONG : 진입= {long_entry_value:.4f}, 청산= {long_exit_value:.4f}, 손익= {long_pnl:.4f} | SHORT : 진입= {short_entry_value:.4f}, 청산= {short_exit_value:.4f}, 손익= {short_pnl:.4f} | 손익합= {pnl_sum:.4f}, 수수료= {fee:.4f}{Colors.RESET}{Colors.END}")
-        logger.info(f"{Colors.BRIGHT_MAGENTA}[24h실현손익] LONG 손익 = {long_pnl:.4f} | SHORT 손익 = {short_pnl:.4f} | 손익합= {pnl_sum:.4f}, 수수료= {fee:.4f}{Colors.RESET}{Colors.END}")
+        logger.info(f"{Colors.BRIGHT_MAGENTA}[24h실현손익] LONG 손익 = {long_pnl:.4f} | SHORT 손익 = {short_pnl:.4f} | 손익합 = {pnl_sum:.4f}, 수수료 = {fee:.4f}{Colors.RESET}{Colors.END}")
 
 def fetch_ohlcv_data(exchange, symbol: str, timeframe: str, limit: int = 500) -> Optional[pd.DataFrame]:
     """
