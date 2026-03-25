@@ -943,10 +943,10 @@ class PositionManager:
             short_pnl_rate = round((short_entry - current_price) / short_entry * 100, 4)
             short_pnl_amount = round((short_entry - current_price) * short_amount, 4)
 
-        if long_side == 'long' and long_amount > 0:
-            logger.info(f"{Colors.GREEN}{Colors.BOLD}[포지션 상태] LONG : 진입가= {long_entry:.4f}, 수량= {long_amount}, 손절가= {long_sl:.4f}, 익절가= {long_tp:.4f}, 손익률= {long_pnl_rate}%, 손익액= {long_pnl_amount}{Colors.RESET}{Colors.END}")
-        if short_side == 'short' and short_amount > 0:
-            logger.info(f"{Colors.RED}{Colors.BOLD}[포지션 상태] SHORT: 진입가= {short_entry:.4f}, 수량= {short_amount}, 손절가= {short_sl:.4f}, 익절가= {short_tp:.4f}, 손익률= {short_pnl_rate}%, 손익액= {short_pnl_amount}{Colors.RESET}{Colors.END}")
+        # if long_side == 'long' and long_amount > 0:
+        #     logger.info(f"{Colors.GREEN}{Colors.BOLD}[포지션 상태] LONG : 진입가= {long_entry:.4f}, 수량= {long_amount}, 손절가= {long_sl:.4f}, 익절가= {long_tp:.4f}, 손익률= {long_pnl_rate}%, 손익액= {long_pnl_amount}{Colors.RESET}{Colors.END}")
+        # if short_side == 'short' and short_amount > 0:
+        #     logger.info(f"{Colors.RED}{Colors.BOLD}[포지션 상태] SHORT: 진입가= {short_entry:.4f}, 수량= {short_amount}, 손절가= {short_sl:.4f}, 익절가= {short_tp:.4f}, 손익률= {short_pnl_rate}%, 손익액= {short_pnl_amount}{Colors.RESET}{Colors.END}")
 
     def log_24h_performance(self, exchange, symbol, logger):
         """
