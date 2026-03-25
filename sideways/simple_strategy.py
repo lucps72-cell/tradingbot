@@ -316,7 +316,7 @@ class SidewaysStrategy:
             # 반대 포지션 존재 시 청산 정책 (True: 자동청산, False: 청산안함)
             auto_close_opposite = self.config['trading'].get('auto_close_opposite', False)
             if auto_close_opposite:
-                if action == 'long' and has_long:
+                if action == 'long' and has_short:
                     active_logger.info(f"🔄 LONG 진입 → SHORT 포지션 청산 시도, 진입가: {short_price}, 수량: {short_amount}")
                     try:
                         close_result = self.position_manager.close_position(self.exchange, self.symbol, 'short', short_amount)
@@ -326,7 +326,7 @@ class SidewaysStrategy:
                             active_logger.error(f"{Colors.RED}✗ SHORT 포지션 청산 실패!{Colors.END}")
                     except Exception as e:
                         active_logger.error(f"{Colors.RED}✗ SHORT 포지션 청산 예외 발생: {e}{Colors.END}")
-                elif action == 'short' and has_short:
+                elif action == 'short' and has_long:
                     active_logger.info(f"🔄 SHORT 진입 → LONG 포지션 청산 시도, 진입가: {long_price}, 수량: {long_amount}")
                     try:
                         close_result = self.position_manager.close_position(self.exchange, self.symbol, 'long', long_amount)
