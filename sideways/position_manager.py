@@ -218,6 +218,8 @@ class PositionManager:
         """
         try:
             positions = exchange.fetch_positions([symbol], params={"recv_window": 30000})
+            active_logger.error(f"포지션 조회 오류: {e}")
+
             if not positions:
                 return (None, 0.0, None), (None, 0.0, None)
             long_side, long_amount, long_entry = None, 0.0, None
@@ -906,7 +908,6 @@ class PositionManager:
             logger: 로깅 인스턴스
         """
         try:
-            logger.info("get_all_positions | start...")
             positions = self.get_all_positions(exchange, symbol)
             if not positions or not isinstance(positions, tuple) or len(positions) != 2:
                 logger.info("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
