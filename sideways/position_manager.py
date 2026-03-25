@@ -910,12 +910,12 @@ class PositionManager:
         """
         try:
             positions = self.get_all_positions(exchange, symbol)
-                        if current_long is None and current_short is None:
+            (long_side, long_amount, long_entry), (short_side, short_amount, short_entry) = positions
 
-            if not positions or not isinstance(positions, tuple) or len(positions) != 2:
+            if long_side is None and short_side is None:
+            #if not positions or not isinstance(positions, tuple) or len(positions) != 2:
                 logger.info("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
                 return
-            (long_side, long_amount, long_entry), (short_side, short_amount, short_entry) = positions
         except Exception as e:
             logger.info(f"⚪ 포지션 상태 : unpack 에러 또는 NoneType - {e}")
             return
