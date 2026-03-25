@@ -916,6 +916,8 @@ class PositionManager:
             #if not positions or not isinstance(positions, tuple) or len(positions) != 2:
                 logger.info("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
                 return
+            
+            
         except Exception as e:
             logger.info(f"⚪ 포지션 상태 : unpack 에러 또는 NoneType - {e}")
             return
