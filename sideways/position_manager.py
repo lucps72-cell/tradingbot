@@ -907,6 +907,7 @@ class PositionManager:
         """
         try:
             positions = self.get_all_positions(exchange, symbol)
+            positions = self.get_all_positions(exchange, symbol)
             if not positions or not isinstance(positions, tuple) or len(positions) != 2:
                 logger.error("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
                 return
@@ -915,7 +916,7 @@ class PositionManager:
             logger.error(f"⚪ 포지션 상태 : unpack 에러 또는 NoneType - {e}")
             return
         
-        
+
         current_price = self.get_current_price(exchange, symbol)
 
         # None 방지: 값이 None이면 0.0으로 대체
