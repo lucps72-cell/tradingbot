@@ -913,7 +913,6 @@ class PositionManager:
             (long_side, long_amount, long_entry), (short_side, short_amount, short_entry) = positions
 
             if long_side is None and short_side is None:
-            #if not positions or not isinstance(positions, tuple) or len(positions) != 2:
                 logger.info("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
                 return
                 
