@@ -906,14 +906,15 @@ class PositionManager:
             logger: 로깅 인스턴스
         """
         try:
+                logger.info("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
             positions = self.get_all_positions(exchange, symbol)
             positions = self.get_all_positions(exchange, symbol)
             if not positions or not isinstance(positions, tuple) or len(positions) != 2:
-                logger.error("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
+                logger.info("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
                 return
             (long_side, long_amount, long_entry), (short_side, short_amount, short_entry) = positions
         except Exception as e:
-            logger.error(f"⚪ 포지션 상태 : unpack 에러 또는 NoneType - {e}")
+            logger.info(f"⚪ 포지션 상태 : unpack 에러 또는 NoneType - {e}")
             return
         
 
