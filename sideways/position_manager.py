@@ -895,6 +895,7 @@ class PositionManager:
                 # 주문 타입이 'stop' 계열인지 확인
                 if order['type'] in ['stop', 'take_profit', 'stop_loss']:
                     active_logger.debug(f"주문 ID: {order['id']}, 트리거 가격: {order['stopPrice']}")
+            return None, None
                     
         except Exception as e:
             active_logger.error(f"TP/SL 조회 실패: {e}")
@@ -910,12 +911,14 @@ class PositionManager:
         """
         try:
             try:
-                raw_positions = exchange.fetch_positions(None, params={"recv_window": 30000})
+                raw_positions = exchange.fetch_positions(params={"recv_window": 30000})
                 active_logger.debug(f"fetch_positions 원본 데이터: {raw_positions}")
             except Exception as fetch_all_error:
                 active_logger.warning(f"전체 포지션 조회 실패, 기본 심볼로 재시도합니다. ({fetch_all_error})")
                 raw_positions = exchange.fetch_positions([symbol], params={"recv_window": 30000})
                 active_logger.debug(f"fetch_positions 재시도 원본 데이터: {raw_positions}")
+
+            raw_positions = raw_positions or []
                 
             active_positions = {}
 
