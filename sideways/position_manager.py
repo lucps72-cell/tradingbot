@@ -38,7 +38,7 @@ class PositionManager:
         """
         try:
             pos_result = self.get_all_positions(exchange, symbol)
-            if not pos_result or not isinstance(pos_result, tuple) or len(pos_result) != 2:
+            if not pos_result:
                 active_logger.info("[get_all_positions] 포지션 없음")
                 self.position = ((None, 0.0, None), (None, 0.0, None))
                 return self.position
