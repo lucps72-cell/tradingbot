@@ -914,6 +914,8 @@ class PositionManager:
         except Exception as e:
             logger.error(f"⚪ 포지션 상태 : unpack 에러 또는 NoneType - {e}")
             return
+        
+        
         current_price = self.get_current_price(exchange, symbol)
 
         # None 방지: 값이 None이면 0.0으로 대체
