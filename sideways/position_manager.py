@@ -38,12 +38,13 @@ class PositionManager:
         """
         try:
             pos_result = self.get_all_positions(exchange, symbol)
-            if not pos_result:
+            (current_long, long_amount, long_entry), (current_short, short_amount, short_entry) = pos_result
+
+            if not pos_result and current_long is None and current_short is None:
                 active_logger.info("[get_all_positions] 포지션 없음")
                 self.position = ((None, 0.0, None), (None, 0.0, None))
                 return self.position
 
-            (current_long, long_amount, long_entry), (current_short, short_amount, short_entry) = pos_result
             sl_price = None
             tp_price = None
 
