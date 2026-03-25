@@ -991,9 +991,9 @@ class PositionManager:
                     short_pnl_amount = round((short_entry - current_price) * short_amount, 4)
 
                 if long_position['side'] == 'long' and long_amount > 0:
-                    logger.info(f"{Colors.GREEN}{Colors.BOLD}[포지션 상태] {position_symbol} LONG : 진입가= {long_entry:.4f}, 수량= {long_amount}, 손절가= {long_sl:.4f}, 익절가= {long_tp:.4f}, 손익률= {long_pnl_rate}%, 손익액= {long_pnl_amount}{Colors.RESET}{Colors.END}")
+                    logger.info(f"{Colors.GREEN}{Colors.BOLD}[포지션 상태] {position_symbol} LONG : 진입가= {long_entry:.4f}, 수량= {long_amount}, 손절가= {long_sl:.4f}, 익절가= {long_tp:.4f}, 손익률= {long_pnl_rate}%, 손익액= {long_pnl_amount}{Colors.END}")
                 if short_position['side'] == 'short' and short_amount > 0:
-                    logger.info(f"{Colors.RED}{Colors.BOLD}[포지션 상태] {position_symbol} SHORT: 진입가= {short_entry:.4f}, 수량= {short_amount}, 손절가= {short_sl:.4f}, 익절가= {short_tp:.4f}, 손익률= {short_pnl_rate}%, 손익액= {short_pnl_amount}{Colors.RESET}{Colors.END}")
+                    logger.info(f"{Colors.RED}{Colors.BOLD}[포지션 상태] {position_symbol} SHORT: 진입가= {short_entry:.4f}, 수량= {short_amount}, 손절가= {short_sl:.4f}, 익절가= {short_tp:.4f}, 손익률= {short_pnl_rate}%, 손익액= {short_pnl_amount}{Colors.END}")
 
         except Exception as e:
             logger.info(f"⚪ 포지션 상태 : unpack 에러 또는 NoneType - {e}")
