@@ -40,9 +40,11 @@ class PositionManager:
             pos_result = self.get_all_positions(exchange, symbol)
             (current_long, long_amount, long_entry), (current_short, short_amount, short_entry) = pos_result
 
+            # 조회할 때마다 현재 보유 상태를 기준으로 다시 채운다.
+            self.position = {'long': None, 'short': None}
+
             if current_long is None and current_short is None:
                 active_logger.info("[get_all_positions] 포지션 없음")
-                self.position = ((None, 0.0, None), (None, 0.0, None))
                 return self.position
 
             sl_price = None
