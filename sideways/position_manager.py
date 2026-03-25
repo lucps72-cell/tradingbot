@@ -218,7 +218,7 @@ class PositionManager:
         """
         try:
             positions = exchange.fetch_positions([symbol], params={"recv_window": 30000})
-            active_logger.error(f"포지션 조회 오류: {e}")
+            active_logger.info(f"포지션 조회 오류: {e}")
 
             if not positions:
                 return (None, 0.0, None), (None, 0.0, None)
