@@ -906,8 +906,7 @@ class PositionManager:
             logger: 로깅 인스턴스
         """
         try:
-                logger.info("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
-            positions = self.get_all_positions(exchange, symbol)
+            logger.info("get_all_positions | 포지션 데이터 없음")
             positions = self.get_all_positions(exchange, symbol)
             if not positions or not isinstance(positions, tuple) or len(positions) != 2:
                 logger.info("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
