@@ -916,48 +916,45 @@ class PositionManager:
             #if not positions or not isinstance(positions, tuple) or len(positions) != 2:
                 logger.info("⚪ 포지션 상태 : 없음 | 포지션 데이터 없음")
                 return
-            
-            
+                
+            current_price = self.get_current_price(exchange, symbol)
+
+            # None 방지: 값이 None이면 0.0으로 대체
+            long_entry = float(long_entry) if long_entry is not None else 0.0
+            long_amount = float(long_amount) if long_amount is not None else 0.0
+            short_entry = float(short_entry) if short_entry is not None else 0.0
+            short_amount = float(short_amount) if short_amount is not None else 0.0
+            current_price = float(current_price) if current_price is not None else 0.0
+
+            # TP/SL 실시간 조회
+            long_sl, long_tp = self.get_tp_sl_for_side(exchange, symbol, 'long')
+            short_sl, short_tp = self.get_tp_sl_for_side(exchange, symbol, 'short')
+            long_sl = float(long_sl) if long_sl is not None else 0.0
+            long_tp = float(long_tp) if long_tp is not None else 0.0
+            short_sl = float(short_sl) if short_sl is not None else 0.0
+            short_tp = float(short_tp) if short_tp is not None else 0.0
+
+            long_pnl_rate = 0.0
+            long_pnl_amount = 0.0
+            if long_side == 'long' and long_entry != 0.0 and long_amount > 0 and current_price > 0:
+                long_pnl_rate = round((current_price - long_entry) / long_entry * 100, 4)
+                long_pnl_amount = round((current_price - long_entry) * long_amount, 4)
+
+            short_pnl_rate = 0.0
+            short_pnl_amount = 0.0
+            if short_side == 'short' and short_entry != 0.0 and short_amount > 0 and current_price > 0:
+                short_pnl_rate = round((short_entry - current_price) / short_entry * 100, 4)
+                short_pnl_amount = round((short_entry - current_price) * short_amount, 4)
+
+            if long_side == 'long' and long_amount > 0:
+                logger.info(f"{Colors.GREEN}{Colors.BOLD}[포지션 상태] LONG : 진입가= {long_entry:.4f}, 수량= {long_amount}, 손절가= {long_sl:.4f}, 익절가= {long_tp:.4f}, 손익률= {long_pnl_rate}%, 손익액= {long_pnl_amount}{Colors.RESET}{Colors.END}")
+            if short_side == 'short' and short_amount > 0:
+                logger.info(f"{Colors.RED}{Colors.BOLD}[포지션 상태] SHORT: 진입가= {short_entry:.4f}, 수량= {short_amount}, 손절가= {short_sl:.4f}, 익절가= {short_tp:.4f}, 손익률= {short_pnl_rate}%, 손익액= {short_pnl_amount}{Colors.RESET}{Colors.END}")
+
         except Exception as e:
             logger.info(f"⚪ 포지션 상태 : unpack 에러 또는 NoneType - {e}")
             return
         
-        logger.info(f"positions | {positions}")
-
-        current_price = self.get_current_price(exchange, symbol)
-
-        # None 방지: 값이 None이면 0.0으로 대체
-        long_entry = float(long_entry) if long_entry is not None else 0.0
-        long_amount = float(long_amount) if long_amount is not None else 0.0
-        short_entry = float(short_entry) if short_entry is not None else 0.0
-        short_amount = float(short_amount) if short_amount is not None else 0.0
-        current_price = float(current_price) if current_price is not None else 0.0
-
-        # TP/SL 실시간 조회
-        long_sl, long_tp = self.get_tp_sl_for_side(exchange, symbol, 'long')
-        short_sl, short_tp = self.get_tp_sl_for_side(exchange, symbol, 'short')
-        long_sl = float(long_sl) if long_sl is not None else 0.0
-        long_tp = float(long_tp) if long_tp is not None else 0.0
-        short_sl = float(short_sl) if short_sl is not None else 0.0
-        short_tp = float(short_tp) if short_tp is not None else 0.0
-
-        long_pnl_rate = 0.0
-        long_pnl_amount = 0.0
-        if long_side == 'long' and long_entry != 0.0 and long_amount > 0 and current_price > 0:
-            long_pnl_rate = round((current_price - long_entry) / long_entry * 100, 4)
-            long_pnl_amount = round((current_price - long_entry) * long_amount, 4)
-
-        short_pnl_rate = 0.0
-        short_pnl_amount = 0.0
-        if short_side == 'short' and short_entry != 0.0 and short_amount > 0 and current_price > 0:
-            short_pnl_rate = round((short_entry - current_price) / short_entry * 100, 4)
-            short_pnl_amount = round((short_entry - current_price) * short_amount, 4)
-
-        if long_side == 'long' and long_amount > 0:
-            logger.info(f"{Colors.GREEN}{Colors.BOLD}[포지션 상태] LONG : 진입가= {long_entry:.4f}, 수량= {long_amount}, 손절가= {long_sl:.4f}, 익절가= {long_tp:.4f}, 손익률= {long_pnl_rate}%, 손익액= {long_pnl_amount}{Colors.RESET}{Colors.END}")
-        if short_side == 'short' and short_amount > 0:
-            logger.info(f"{Colors.RED}{Colors.BOLD}[포지션 상태] SHORT: 진입가= {short_entry:.4f}, 수량= {short_amount}, 손절가= {short_sl:.4f}, 익절가= {short_tp:.4f}, 손익률= {short_pnl_rate}%, 손익액= {short_pnl_amount}{Colors.RESET}{Colors.END}")
-
     def log_24h_performance(self, exchange, symbol, logger):
         """
         Bybit 실현손익 집계: 최근 24시간 내 closed position의 realizedPnl 합산
