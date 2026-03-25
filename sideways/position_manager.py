@@ -221,6 +221,7 @@ class PositionManager:
 
             if not positions:
                 return (None, 0.0, None), (None, 0.0, None)
+            
             long_side, long_amount, long_entry = None, 0.0, None
             short_side, short_amount, short_entry = None, 0.0, None
             for pos in positions:
