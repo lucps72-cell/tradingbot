@@ -282,7 +282,7 @@ def main():
                 strategy.position_manager.trailing_stop_monitor(exchange, symbol, config)
 
             # 포지션 상태 상세 로그 함수 호출
-            #strategy.position_manager.log_position_status(exchange, symbol, logger)
+            strategy.position_manager.log_position_status(exchange, symbol, logger)
 
             # 24시간 거래금액 및 손익금액 로그
             strategy.position_manager.log_24h_performance(exchange, symbol, logger)
