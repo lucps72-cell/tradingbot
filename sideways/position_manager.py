@@ -916,7 +916,7 @@ class PositionManager:
             logger.info(f"⚪ 포지션 상태 : unpack 에러 또는 NoneType - {e}")
             return
         
-            logger.info(f"positions | {positions}")
+        logger.info(f"positions | {positions}")
 
         current_price = self.get_current_price(exchange, symbol)
 
