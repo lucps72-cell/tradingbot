@@ -44,7 +44,7 @@ class PositionManager:
             self.position = {'long': None, 'short': None}
 
             if current_long is None and current_short is None:
-                active_logger.info("[get_all_positions] 포지션 없음")
+                #active_logger.info("[get_all_positions] 포지션 없음")
                 return self.position
 
             sl_price = None
