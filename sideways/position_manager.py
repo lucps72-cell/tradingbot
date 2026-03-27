@@ -1003,52 +1003,109 @@ class PositionManager:
         
     def log_24h_performance(self, exchange, symbol, logger):
         """
-        Bybit 실현손익 집계: 최근 24시간 내 closed position의 realizedPnl 합산
+        Bybit 실현손익 집계: 최근 24시간 내 closed position의 realizedPnl를 심볼별로 합산
         """
-        now = int(time.time() * 1000) # 현재 시간 (밀리초)
-        since = now - 24*60*60*1000   # 24시간 전 (밀리초)
+        now = int(time.time() * 1000)
+        since = now - 24 * 60 * 60 * 1000
+        requested_symbol = symbol.replace('/', '').split(':')[0]
 
-        params = {
-            "category": "linear",
-            "symbol": symbol.replace('/', '').split(':')[0],
-            "startTime": since,
-            "endTime": now
-        }
-        result = exchange.private_get_v5_position_closed_pnl(params)
+        performance_by_symbol = {}
+        cursor = None
+        used_symbol_fallback = False
 
-        long_entry_value = 0.0
-        long_exit_value = 0.0
-        short_entry_value = 0.0
-        short_exit_value = 0.0
-        long_pnl = 0.0
-        short_pnl = 0.0
-        pnl_sum = 0.0
+        while True:
+            params = {
+                "category": "linear",
+                "startTime": since,
+                "endTime": now,
+                "limit": 100
+            }
+            if cursor:
+                params["cursor"] = cursor
 
-        for p in result["result"]["list"]:
-            ts = int(p["createdTime"])
-            side = p["side"]
+            try:
+                result = exchange.private_get_v5_position_closed_pnl(params)
+            except Exception:
+                params["symbol"] = requested_symbol
+                result = exchange.private_get_v5_position_closed_pnl(params)
+                used_symbol_fallback = True
 
-            entry_price = float(p["avgEntryPrice"])
-            exit_price = float(p["avgExitPrice"])
-            amount = float(p["qty"])
-            pnl = float(p["closedPnl"])
+            closed_pnl_list = result.get("result", {}).get("list", [])
+            if not closed_pnl_list:
+                break
 
-            if since <= ts <= now:
-                if side.lower() == "buy":
-                    long_entry_value += entry_price * amount
-                    long_exit_value += exit_price * amount
-                    long_pnl += pnl
-                elif side.lower() == "sell":
-                    short_entry_value += entry_price * amount
-                    short_exit_value += exit_price * amount
-                    short_pnl += pnl
-                pnl_sum += pnl
+            for pnl_item in closed_pnl_list:
+                created_time = int(pnl_item.get("createdTime", 0) or 0)
+                if not (since <= created_time <= now):
+                    continue
 
-        fee = long_entry_value - long_exit_value + short_exit_value - short_entry_value - pnl_sum
-        fee = fee if fee is not None else 0.0
+                position_symbol = pnl_item.get("symbol") or requested_symbol
+                side = (pnl_item.get("side") or "").lower()
+                entry_price = float(pnl_item.get("avgEntryPrice", 0.0) or 0.0)
+                exit_price = float(pnl_item.get("avgExitPrice", 0.0) or 0.0)
+                amount = float(pnl_item.get("qty", 0.0) or 0.0)
+                pnl = float(pnl_item.get("closedPnl", 0.0) or 0.0)
 
-        #logger.info(f"{Colors.BRIGHT_MAGENTA}[24h실현손익] LONG : 진입= {long_entry_value:.4f}, 청산= {long_exit_value:.4f}, 손익= {long_pnl:.4f} | SHORT : 진입= {short_entry_value:.4f}, 청산= {short_exit_value:.4f}, 손익= {short_pnl:.4f} | 손익합= {pnl_sum:.4f}, 수수료= {fee:.4f}{Colors.RESET}{Colors.END}")
-        logger.info(f"{Colors.BRIGHT_MAGENTA}{Colors.BOLD}[24h실현손익] LONG 손익 = {long_pnl:.4f} | SHORT 손익 = {short_pnl:.4f} | 손익합 = {pnl_sum:.4f}, 수수료 = {fee:.4f}{Colors.RESET}{Colors.END}")
+                if position_symbol not in performance_by_symbol:
+                    performance_by_symbol[position_symbol] = {
+                        "long_entry_value": 0.0,
+                        "long_exit_value": 0.0,
+                        "short_entry_value": 0.0,
+                        "short_exit_value": 0.0,
+                        "long_pnl": 0.0,
+                        "short_pnl": 0.0,
+                        "pnl_sum": 0.0,
+                    }
+
+                stats = performance_by_symbol[position_symbol]
+                if side == "buy":
+                    stats["long_entry_value"] += entry_price * amount
+                    stats["long_exit_value"] += exit_price * amount
+                    stats["long_pnl"] += pnl
+                elif side == "sell":
+                    stats["short_entry_value"] += entry_price * amount
+                    stats["short_exit_value"] += exit_price * amount
+                    stats["short_pnl"] += pnl
+                stats["pnl_sum"] += pnl
+
+            cursor = result.get("result", {}).get("nextPageCursor")
+            if not cursor or used_symbol_fallback:
+                break
+
+        if not performance_by_symbol:
+            logger.info(f"{Colors.BRIGHT_MAGENTA}{Colors.BOLD}[24h실현손익] 최근 24시간 청산 내역 없음{Colors.RESET}{Colors.END}")
+            return
+
+        total_long_pnl = 0.0
+        total_short_pnl = 0.0
+        total_pnl_sum = 0.0
+        total_fee = 0.0
+
+        for position_symbol in sorted(performance_by_symbol.keys()):
+            stats = performance_by_symbol[position_symbol]
+            fee = (
+                stats["long_entry_value"]
+                - stats["long_exit_value"]
+                + stats["short_exit_value"]
+                - stats["short_entry_value"]
+                - stats["pnl_sum"]
+            )
+
+            total_long_pnl += stats["long_pnl"]
+            total_short_pnl += stats["short_pnl"]
+            total_pnl_sum += stats["pnl_sum"]
+            total_fee += fee
+
+            logger.info(
+                f"{Colors.BRIGHT_MAGENTA}{Colors.BOLD}[24h실현손익] {position_symbol} | LONG 손익 = {stats['long_pnl']:.4f} | "
+                f"SHORT 손익 = {stats['short_pnl']:.4f} | 손익합 = {stats['pnl_sum']:.4f}, 수수료 = {fee:.4f}{Colors.RESET}{Colors.END}"
+            )
+
+        if len(performance_by_symbol) > 1:
+            logger.info(
+                f"{Colors.BRIGHT_MAGENTA}{Colors.BOLD}[24h실현손익 합계] LONG 손익 = {total_long_pnl:.4f} | "
+                f"SHORT 손익 = {total_short_pnl:.4f} | 손익합 = {total_pnl_sum:.4f}, 수수료 = {total_fee:.4f}{Colors.RESET}{Colors.END}"
+            )
 
 def fetch_ohlcv_data(exchange, symbol: str, timeframe: str, limit: int = 500) -> Optional[pd.DataFrame]:
     """
