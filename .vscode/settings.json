@@ -63,13 +63,11 @@
     
     // 메뉴바 표시 (Windows/Linux)
     "window.menuBarVisibility": "default",
-    "workbench.editor.tabActionLocation": "right",
     "task.allowAutomaticTasks": "on",
     
     // 메뉴바 표시 (Mac)
     // "window.menuBarVisibility": "visible",
     
-    // 주의: workbench.editor.tabActionLocation은 워크스페이스 설정에서 지원되지 않습니다.
-    // 이 설정이 필요하면 전역 사용자 설정에서만 사용하세요.
+    // 주의: workbench.editor.tabActionLocation은 사용자 설정에서만 지원됩니다.
 }
 
