@@ -697,7 +697,7 @@ class SidewaysStrategy:
                 return "short", f"연속 음봉 매도(지지선반전: {support_breakdown}, 거래량반전: {volume_breakdown})"
 
         # 4.신호 결정 (일반조건: 밴드값, RSI, 거래량 기반)
-        if return_position == None:
+        if return_position is None:
             if volume_breakup and rsi_last < 60 and is_upper_riding:                # 거래량 돌파 신호(상승)
                 return_position = "long"
                 return_msg = "거래량 돌파 신호로 매수"
