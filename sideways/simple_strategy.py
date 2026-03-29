@@ -592,9 +592,7 @@ class SidewaysStrategy:
         active_logger.info(f"[동적 지지/저항] 지지선: {dynamic_support[1]}, {dyn_sup_val}, 저항선: {dynamic_resistance[1]}, {dyn_res_val}")
         support_price = dynamic_support[0]
         resistance_price = dynamic_resistance[0]
-        support_breakdown, resistance_breakup = self.get_position_signal(
-            support_price, resistance_price, current_price
-        )
+        support_breakdown, resistance_breakup = self.get_position_signal(support_price, resistance_price, current_price)
 
         # 이전 고점/저점 조회 (swing point 기반)
         prev_high_price, prev_low_price = MarketStructure().get_previous_high_low(ohlcv)
