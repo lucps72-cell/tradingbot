@@ -18,7 +18,7 @@
     "order_amount_usdt": 100,
     "max_positions": 1,
     "allow_same_position": true,
-    "auto_close_opposite": true,
+    "auto_close_opposite": false,
     "read_only_mode": true,
     "max_position_pct": 0.16
   },
