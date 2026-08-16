@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 # Local imports
 from sideways.log_config import setup_logging
 from sideways.common import is_time_between
+from sideways.common import play_voice_alert, play_voice_alert_signal, send_telegram
 from sideways.color_utils import Colors
 from sideways.config_loader import load_config
 from sideways.simple_strategy import SidewaysStrategy
@@ -261,6 +262,9 @@ def main():
                     entry_split_count = config['trading'].get('entry_split_count', 1)
                     
                     if repeat_entry_count < entry_split_count:
+                        if entry_position != last_trade_position:
+                            send_telegram(f"{entry_position} 신호: {current_price} ")
+
                         if config['trading'].get('read_only_mode', False) is False: 
                             # 거래실행 함수 호출 (양방향 포지션 구조 대응)
                             rtn_success_count, rtn_skipped_count = strategy.execute_transaction(entry_position, close_position)
