@@ -8,6 +8,7 @@ from sideways.market_structure import MarketStructure
 from sideways.validation import validate_data
 from sideways.position_manager import PositionManager
 from sideways.risk_manager import RiskManager
+from sideways.trade_recorder import TradeRecorder
 from datetime import datetime, time
 
 active_logger = logging.getLogger(__name__)
@@ -17,10 +18,11 @@ trade_logger = logging.getLogger("trade")
 class SidewaysStrategy:
 
     """평균 회귀/박스권 전략 로직."""
-    def __init__(self, exchange, symbol, config, window_size=180+1, bb_window=20, bb_std=2, rsi_period=14, rsi_overbought=70, rsi_oversold=30):
+    def __init__(self, exchange, symbol, config, trade_recorder=None, window_size=180+1, bb_window=20, bb_std=2, rsi_period=14, rsi_overbought=70, rsi_oversold=30):
         self.exchange = exchange
         self.symbol = symbol
         self.config = config
+        self.trade_recorder = trade_recorder
         self.window_size = window_size
         self.bb_window = bb_window
         self.bb_std = bb_std
@@ -359,6 +361,22 @@ class SidewaysStrategy:
                         active_logger.info(f"{Colors.BLUE}✓ {action.upper()} 분할 진입 {entry_count+1}/{self.config['trading']['entry_split_count']}회 완료! (총액: {total_amount+split_amount:.2f} USDT){Colors.END}")
                         trades_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                         success_count += 1
+                        
+                        # 거래 기록 저장
+                        if self.trade_recorder:
+                            quantity = split_amount / analysis['entry_price']
+                            self.trade_recorder.record_entry(
+                                symbol=self.symbol,
+                                side=action,
+                                entry_price=analysis['entry_price'],
+                                quantity=quantity,
+                                entry_usdt=split_amount,
+                                tp_price=analysis.get('tp_price'),
+                                sl_price=analysis.get('sl_price'),
+                                signal_reason=f"{action.upper()} 분할 진입 {entry_count+1}/{self.config['trading']['entry_split_count']}회",
+                                leverage=self.config['trading'].get('leverage', 1),
+                                entry_split_count=self.config['trading']['entry_split_count']
+                            )
                     else:
                         active_logger.error(f"{Colors.RED}✗ {action.upper()} 분할 진입 실패!{Colors.END}")
                         skipped_count += 1
