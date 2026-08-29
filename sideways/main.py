@@ -186,27 +186,31 @@ def load_config_direct():
     return config
 
 def main():
-    def sigint_handler(sig, frame):
-        logger.info("SIGINT(Ctrl+C) 신호 수신. 안전하게 종료합니다.")
-        sys.exit(0)
-    signal.signal(signal.SIGINT, sigint_handler)
+    trade_recorder = None
+    try:
+        def sigint_handler(sig, frame):
+            logger.info("SIGINT(Ctrl+C) 신호 수신. 안전하게 종료합니다.")
+            if trade_recorder:
+                trade_recorder.close()
+            sys.exit(0)
+        signal.signal(signal.SIGINT, sigint_handler)
 
-    # 로그 설정 (sideways/logs/tradingbot.log에 기록)
-    global config
-    config = load_config_direct()
-    symbol = config.get('trading', {}).get('symbol', 'BTCUSDT')
-    limit = config.get('limit', 180)
-    check_interval = config.get('loop', {}).get('check_interval', 15)
+        # 로그 설정 (sideways/logs/tradingbot.log에 기록)
+        global config
+        config = load_config_direct()
+        symbol = config.get('trading', {}).get('symbol', 'BTCUSDT')
+        limit = config.get('limit', 180)
+        check_interval = config.get('loop', {}).get('check_interval', 15)
 
-    timeframe_higher = config['strategy']['timeframes']['higher_trend'][0] if isinstance(config['strategy']['timeframes']['higher_trend'], list) else config['strategy']['timeframes']['higher_trend']
-    timeframe_lower = config['strategy']['timeframes']['lower_signal'][0] if isinstance(config['strategy']['timeframes']['lower_signal'], list) else config['strategy']['timeframes']['lower_signal']
-    logger.info(f"[실시간 거래] 심볼: {symbol} 타임프레임: {timeframe_higher}/{timeframe_lower}")
+        timeframe_higher = config['strategy']['timeframes']['higher_trend'][0] if isinstance(config['strategy']['timeframes']['higher_trend'], list) else config['strategy']['timeframes']['higher_trend']
+        timeframe_lower = config['strategy']['timeframes']['lower_signal'][0] if isinstance(config['strategy']['timeframes']['lower_signal'], list) else config['strategy']['timeframes']['lower_signal']
+        logger.info(f"[실시간 거래] 심볼: {symbol} 타임프레임: {timeframe_higher}/{timeframe_lower}")
 
-    # 거래소 연결
-    exchange = initialize_exchange(config)
+        # 거래소 연결
+        exchange = initialize_exchange(config)
 
-    # TradeRecorder 초기화
-    trade_recorder = TradeRecorder(config)
+        # TradeRecorder 초기화
+        trade_recorder = TradeRecorder(config)
     
     # 거래소와 심볼을 넘겨서 PositionManager가 포지션을 동기화하도록 생성
     strategy = SidewaysStrategy(exchange, symbol, config, trade_recorder=trade_recorder)
