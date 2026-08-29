@@ -32,6 +32,7 @@ from sideways.common import play_voice_alert, play_voice_alert_signal, send_tele
 from sideways.color_utils import Colors
 from sideways.config_loader import load_config
 from sideways.simple_strategy import SidewaysStrategy
+from sideways.trade_recorder import TradeRecorder
 
 
 # UTF-8 인코딩 설정 (Windows 한글 깨짐 방지)
@@ -204,8 +205,11 @@ def main():
     # 거래소 연결
     exchange = initialize_exchange(config)
 
+    # TradeRecorder 초기화
+    trade_recorder = TradeRecorder(config)
+    
     # 거래소와 심볼을 넘겨서 PositionManager가 포지션을 동기화하도록 생성
-    strategy = SidewaysStrategy(exchange, symbol, config)
+    strategy = SidewaysStrategy(exchange, symbol, config, trade_recorder=trade_recorder)
 
     current_trend = None
     success_count = 0
