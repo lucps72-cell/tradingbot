@@ -1,5 +1,20 @@
+BYBIT_API_KEY="5NRYCrdIjN59C3LWLN"
+BYBIT_API_SECRET="P4GvTUiv7eDK71Y4fi17BPwrFmvFZfGUw99q"
+TST_BYBIT_API_KEY="BOStbNGPrVMOGX6PXm"
+TST_BYBIT_API_SECRET="mCuYv7ifgVp4DJ880Aqhi3dRy9FyHzBrtr2B"
+
+
+python -m pip install pandas
+python -m pip install dotenv
+python -m pip install scipy
+python -m pip install ccxt
+## 음성알림 설치
+python -m pip install pyttsx3
+
+
 ## 실행 방법 (Windows)
 python -m sideways.main
+
 
 # sideways/README.md
 이 폴더는 평균 회귀(Mean Reversion) 및 박스권(횡보장) 전략을 위한 소스코드를 포함합니다.
@@ -20,16 +35,20 @@ python -m sideways.main
 
 
 지지선 / 저항선 = 가격의 “의사결정 구역” : 가격 반응이 일어나는 곳
-  1.이전 고점/저점
-  2.횡보 구간
-  3.거래량 집중 구간
-      상승 + 거래량 증가 → 진짜 상승 (신뢰도 높음)
-      상승 + 거래량 감소 → 가짜 상승 (되돌림 가능성)
-      하락 + 거래량 증가 → 패닉/추세 하락
 
+    이전 고점/저점
+    횡보 구간
+    거래량 집중 구간
+        상승 + 거래량 증가 → 진짜 상승 (신뢰도 높음)
+        상승 + 거래량 감소 → 가짜 상승 (되돌림 가능성)
+        하락 + 거래량 증가 → 패닉/추세 하락
 
+RSI다이버전스 
+가격 ↑ / RSI ↓ → 하락 가능성
+가격 ↓ / RSI ↑ → 상승 가능성
 📌 ✅ ❌ ⚠️ 🌟 ⭐️ 📉 📈 💹 🎯 📊 ⏰ 💰
 1️⃣
+
 매도/매수 원칙 case 1.
     EMA 정배열 시 매도 금지
     EMA 역배열 시 매수 금지
@@ -59,37 +78,19 @@ python -m sideways.main
 config.json의 트레일링 스탑 관련 설정값 의미는 다음과 같습니다:
 
 "use_trailing_stop": true
-  → 트레일링 스탑 기능을 사용할지 여부 (true면 활성화)
+→ 트레일링 스탑 기능을 사용할지 여부 (true면 활성화)
 "trailing_stop_activation": 0.01
-  → 진입 후 1% 수익이 발생하면 트레일링 스탑이 활성화됨 (예: 진입가 대비 1% 상승/하락 시)
+→ 진입 후 1% 수익이 발생하면 트레일링 스탑이 활성화됨 (예: 진입가 대비 1% 상승/하락 시)
 "trailing_stop_distance": 0.005
-  → 트레일링 스탑의 거리(폭), 0.5% (예: 활성화 이후 최고가/최저가에서 0.5% 역행하면 청산)
-
+→ 트레일링 스탑의 거리(폭), 0.5% (예: 활성화 이후 최고가/최저가에서 0.5% 역행하면 청산)
 "use_profit_trailing": true
-  → 이익구간 트레일링(Profit Trailing) 기능 사용 여부
+→ 이익구간 트레일링(Profit Trailing) 기능 사용 여부
 "profit_trailing_activation": 0.007
-  → 이익 트레일링 발동 기준, 0.7% 수익 발생 시부터 적용
+→ 이익 트레일링 발동 기준, 0.7% 수익 발생 시부터 적용
 "profit_trailing_drawdown": 0.3
-  → 이익 트레일링 드로우다운 비율, 최고 수익에서 30% 이상 수익이 줄어들면 청산
+→ 이익 트레일링 드로우다운 비율, 최고 수익에서 30% 이상 수익이 줄어들면 청산
 
 즉,
 트레일링 스탑은 진입 후 일정 수익이 발생하면 활성화되고,
 이후 가격이 최고점(또는 최저점)에서 일정 비율(거리)만큼 역행하면 포지션을 청산합니다.
 이익 트레일링은 추가로, 최고 수익에서 일정 비율만큼 수익이 줄어들면 청산하는 기능입니다.
-
-상세설명:
-"use_trailing_stop", "trailing_stop_activation", "trailing_stop_distance"
-
-트레일링 스탑(기본):
-진입 후 일정 이익(activation) 이상이 되면, 손절가(SL)를 진입가보다 위로 올려서 이익을 보호합니다.
-가격이 trailing_stop_distance만큼 반전하면 포지션을 청산합니다.
-즉, 이익이 발생하면 SL을 따라 올리고, 가격이 일정 거리만큼 떨어지면 자동 청산.
-
-"use_profit_trailing", "profit_trailing_activation", "profit_trailing_drawdown"
-프로핏 트레일링(이익 추적):
-최대 이익(peak profit)을 추적하며, activation 이상 이익이 발생하면 drawdown(이익에서 일정 비율 하락)만큼 반전 시 청산합니다.
-SL을 단순히 올리는 것이 아니라, 이익이 최고점에서 얼마나 떨어졌는지(드로우다운)를 기준으로 청산.
-요약:
-
-트레일링 스탑: SL을 올리고, 가격이 일정 거리만큼 반전하면 청산.
-프로핏 트레일링: 최고 이익에서 일정 비율 하락(drawdown) 시 청산.

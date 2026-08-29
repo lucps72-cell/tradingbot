@@ -5,14 +5,6 @@ import re
 import requests
 import os
 
-try:
-    from dotenv import load_dotenv
-except ImportError:
-    load_dotenv = None
-
-if load_dotenv is not None:
-    load_dotenv(os.path.join(os.path.dirname(__file__), '.env'))
-
 def is_time_between(start_time, end_time, now=None):
     """
     start_time, end_time: time 객체 또는 'HH:MM' 문자열
@@ -68,11 +60,8 @@ def play_voice_alert_signal(message_key1: str, message_key2: str):
 
 
 def send_telegram(message):
-    token = os.getenv('TELEGRAM_BOT_TOKEN', '')
-    chat_id = os.getenv('TELEGRAM_CHAT_ID', '')
-    if not token or not chat_id:
-        print('[텔레그램 전송 실패] TELEGRAM_BOT_TOKEN 또는 TELEGRAM_CHAT_ID가 설정되지 않았습니다.')
-        return
+    token = "8239346949:AAGWhKNEivnX69iWNEJUo2uvzz1foo0GdGM"
+    chat_id = "8406358010"
     url = f'https://api.telegram.org/bot{token}/sendMessage'
     data = {'chat_id': chat_id, 'text': message}
     try:
