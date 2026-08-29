@@ -145,6 +145,20 @@
     "max_retries": 3,
     "timeout": 10
   },
+  "database": {
+    "_comment_database": "데이터베이스 설정 (type: sqlite 또는 mysql)",
+    "type": "sqlite",
+    "_comment_sqlite": "SQLite 설정",
+    "path": "sideways/trades.db",
+    "_comment_mysql": "MySQL 설정 (type을 mysql로 변경하면 사용)",
+    "host": "localhost",
+    "port": 3306,
+    "user": "root",
+    "password": "",
+    "database": "trading_bot",
+    "save_trades": true,
+    "_comment_save_trades": "거래 기록을 데이터베이스에 저장할지 여부"
+  },
   "loop": {
     "_comment_loop": "루프/주기 관련 설정 (체크 주기, 캐시 TTL 등)",
     "check_interval": 12,
