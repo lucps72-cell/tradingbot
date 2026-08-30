@@ -414,7 +414,7 @@ class SidewaysStrategy:
                         active_logger.info(f"{Colors.BLUE}✓ {action.upper()} 포지션 진입 {entry_count+1}/{split_count}회 완료!! (총액: {total_amount+split_amount:.2f} USDT) " \
                                            f"| 진입가: {current_entry_price}, 진입수량: {current_entry_qty:.4f}, 손절가: {analysis['sl_price']:.4f}, 익절가: {analysis.get('tp_price'):.4f}{Colors.END}")
                         
-                        # 거래 기록 저장
+                        # 거래 기록 Database저장
                         if self.trade_recorder:
                             self.trade_recorder.record_entry(
                                 symbol=self.symbol,
