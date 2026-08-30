@@ -7,6 +7,7 @@ from sideways.market_structure import MarketStructure
 from sideways.validation import validate_data
 from sideways.position_manager import PositionManager
 from sideways.risk_manager import RiskManager
+from sideways.trade_recorder import TradeRecorder
 from datetime import datetime, time
 
 active_logger = logging.getLogger(__name__)
@@ -16,10 +17,11 @@ trade_logger = logging.getLogger("trade")
 class SidewaysStrategy:
 
     """평균 회귀/박스권 전략 로직."""
-    def __init__(self, exchange, symbol, config, window_size=180+1, bb_window=20, bb_std=2, rsi_period=14, rsi_overbought=70, rsi_oversold=30):
+    def __init__(self, exchange, symbol, config, trade_recorder=None, window_size=180+1, bb_window=20, bb_std=2, rsi_period=14, rsi_overbought=70, rsi_oversold=30):
         self.exchange = exchange
         self.symbol = symbol
         self.config = config
+        self.trade_recorder = trade_recorder
         self.window_size = window_size
         self.bb_window = bb_window
         self.bb_std = bb_std
@@ -411,6 +413,21 @@ class SidewaysStrategy:
                         success_count += 1
                         active_logger.info(f"{Colors.BLUE}✓ {action.upper()} 포지션 진입 {entry_count+1}/{split_count}회 완료!! (총액: {total_amount+split_amount:.2f} USDT) " \
                                            f"| 진입가: {current_entry_price}, 진입수량: {current_entry_qty:.4f}, 손절가: {analysis['sl_price']:.4f}, 익절가: {analysis.get('tp_price'):.4f}{Colors.END}")
+                        
+                        # 거래 기록 저장
+                        if self.trade_recorder:
+                            self.trade_recorder.record_entry(
+                                symbol=self.symbol,
+                                side=action,
+                                entry_price=current_entry_price,
+                                quantity=current_entry_qty,
+                                entry_usdt=split_amount,
+                                tp_price=current_tp_price if current_tp_price > 0 else None,
+                                sl_price=current_sl_price if current_sl_price > 0 else None,
+                                signal_reason=f"{action.upper()} 포지션 진입 {entry_count+1}/{split_count}회",
+                                leverage=int(leverage),
+                                entry_split_count=split_count
+                            )
                         #time.sleep(2)  # 진입 간 짧은 대기 시간 (API 과부하 방지)
 
         return success_count, skipped_count
