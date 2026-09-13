@@ -1,7 +1,11 @@
-BYBIT_API_KEY="***REMOVED-BYBIT-KEY***"
-BYBIT_API_SECRET="***REMOVED-BYBIT-SECRET***"
-TST_BYBIT_API_KEY="***REMOVED-BYBIT-TESTNET-KEY***"
-TST_BYBIT_API_SECRET="***REMOVED-BYBIT-TESTNET-SECRET***"
+## 환경변수 (.env)
+`sideways/.env` 파일(gitignore 처리됨, 커밋 금지)에 아래 키를 설정합니다:
+```
+BYBIT_API_KEY=
+BYBIT_API_SECRET=
+TST_BYBIT_API_KEY=
+TST_BYBIT_API_SECRET=
+```
 
 
 python -m pip install pandas
