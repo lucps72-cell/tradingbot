@@ -3,7 +3,6 @@ Market Structure Analysis Module
 가격 구조(고점/저점) 분석 및 추세 전환 감지
 """
 import logging
-from venv import logger
 import pandas as pd
 import numpy as np
 from typing import Tuple, List, Optional, Dict
@@ -143,7 +142,7 @@ class MarketStructure:
         return 'ranging', details
     
 
-    def check_structure_break(self, df: pd.DataFrame, current_price: float = None) -> Tuple[Tuple[bool, str, str], Tuple[bool, str, str]]:
+    def check_structure_break(self, df: pd.DataFrame, current_price: float = None) -> Tuple[bool, str, bool, str, str]:
         """
         추세 구조 붕괴 확인
         
@@ -344,7 +343,10 @@ class MarketStructure:
                 prev_low = l
                 break
 
-        return prev_high['price'], prev_low['price']
+        return (
+            prev_high['price'] if prev_high else None,
+            prev_low['price'] if prev_low else None,
+        )
     
     def get_sorted_by_price(self, swing_list, reverse=True):
         """

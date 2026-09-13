@@ -1,6 +1,4 @@
 import datetime
-from time import time
-import time
 import re
 import requests
 import os
@@ -13,9 +11,9 @@ def is_time_between(start_time, end_time, now=None):
     if now is None:
         now = datetime.datetime.now().time()
     if isinstance(start_time, str):
-        start_time = time.fromisoformat(start_time)
+        start_time = datetime.time.fromisoformat(start_time)
     if isinstance(end_time, str):
-        end_time = time.fromisoformat(end_time)
+        end_time = datetime.time.fromisoformat(end_time)
     # 자정 넘김 구간 처리
     if start_time <= end_time:
         return start_time <= now <= end_time

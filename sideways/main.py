@@ -16,7 +16,6 @@ import signal
 import datetime  # datetime 모듈 전체 import
 from typing import Dict, Optional
 import logging
-from logging import config
 logging.basicConfig(level=logging.DEBUG)
 logging.getLogger("comtypes").setLevel(logging.WARNING)
 
@@ -123,12 +122,16 @@ def initialize_exchange(config: Dict) -> ccxt.bybit:
                 'defaultType': config['trading']['trade_type'],
                 'defaultMarginType': 'isolated',
                 'brokerId': 'NRZST',
-                'recvWindow': 10000
+                'recvWindow': 20000,
+                'adjustForTimeDifference': True
             }
         })
 
         if config['exchange'].get('testnet', False):
             ex.set_sandbox_mode(True)
+
+        # Bybit private requests require the local clock to stay close to server time.
+        ex.load_time_difference()
 
         logger.info(f"거래소 연결: {config['exchange']['name']} ({'테스트넷' if config['exchange'].get('testnet') else '실거래'})")
         return ex
@@ -152,7 +155,7 @@ def check_exclusion_filters(config, v_action, trades_time):
     # Prevent excessive trading
     # 동일 포지션 내에서 너무 잦은 거래 방지
     MIN_TRADE_INTERVAL = config['trading'].get('entry_cooldown_sec', 60)  # seconds
-    diff_time = datetime.now() - datetime.strptime(trades_time, '%Y-%m-%d %H:%M:%S')
+    diff_time = datetime.datetime.now() - datetime.datetime.strptime(trades_time, '%Y-%m-%d %H:%M:%S')
     if abs(diff_time.total_seconds()) < MIN_TRADE_INTERVAL:
         logger.info(f"Trade occurred within last {MIN_TRADE_INTERVAL}s. (preventing duplicate entry or excessive trading)\n")
         return True
@@ -187,39 +190,55 @@ def load_config_direct():
 
 def main():
     trade_recorder = None
+    
+    def sigint_handler(sig, frame):
+        logger.info("SIGINT(Ctrl+C) 신호 수신. 안전하게 종료합니다.")
+        if trade_recorder:
+            trade_recorder.close()
+        sys.exit(0)
+    signal.signal(signal.SIGINT, sigint_handler)
+
+    # 로그 설정 (sideways/logs/tradingbot.log에 기록)
+    config = load_config_direct()
+    symbol = config.get('trading', {}).get('symbol', 'BTCUSDT')
+    limit = config.get('limit', 180)
+    check_interval = config.get('loop', {}).get('check_interval', 15)
+
+    timeframe_higher = config['strategy']['timeframes']['higher_trend'][0] if isinstance(config['strategy']['timeframes']['higher_trend'], list) else config['strategy']['timeframes']['higher_trend']
+    timeframe_lower = config['strategy']['timeframes']['lower_signal'][0] if isinstance(config['strategy']['timeframes']['lower_signal'], list) else config['strategy']['timeframes']['lower_signal']
+    logger.info(f"[실시간 거래] 심볼: {symbol} 타임프레임: {timeframe_higher}/{timeframe_lower}")
+
+    # 거래소 연결
+    exchange = initialize_exchange(config)
+
+    # TradeRecorder 초기화
     try:
-        def sigint_handler(sig, frame):
-            logger.info("SIGINT(Ctrl+C) 신호 수신. 안전하게 종료합니다.")
-            if trade_recorder:
-                trade_recorder.close()
-            sys.exit(0)
-        signal.signal(signal.SIGINT, sigint_handler)
-
-        # 로그 설정 (sideways/logs/tradingbot.log에 기록)
-        global config
-        config = load_config_direct()
-        symbol = config.get('trading', {}).get('symbol', 'BTCUSDT')
-        limit = config.get('limit', 180)
-        check_interval = config.get('loop', {}).get('check_interval', 15)
-
-        timeframe_higher = config['strategy']['timeframes']['higher_trend'][0] if isinstance(config['strategy']['timeframes']['higher_trend'], list) else config['strategy']['timeframes']['higher_trend']
-        timeframe_lower = config['strategy']['timeframes']['lower_signal'][0] if isinstance(config['strategy']['timeframes']['lower_signal'], list) else config['strategy']['timeframes']['lower_signal']
-        logger.info(f"[실시간 거래] 심볼: {symbol} 타임프레임: {timeframe_higher}/{timeframe_lower}")
-
-        # 거래소 연결
-        exchange = initialize_exchange(config)
-
-        # TradeRecorder 초기화
         trade_recorder = TradeRecorder(config)
+        logger.info("[성공] TradeRecorder 초기화 완료")
+    except Exception as e:
+        import traceback
+        logger.error(f"[TradeRecorder 초기화 실패] {e}")
+        logger.error(f"[스택 트레이스] {traceback.format_exc()}")
+        sys.exit(1)
     
     # 거래소와 심볼을 넘겨서 PositionManager가 포지션을 동기화하도록 생성
-    strategy = SidewaysStrategy(exchange, symbol, config, trade_recorder=trade_recorder)
+    try:
+        strategy = SidewaysStrategy(exchange, symbol, config, trade_recorder=trade_recorder)
+        logger.info("[성공] SidewaysStrategy 초기화 완료")
+    except Exception as e:
+        import traceback
+        logger.error(f"[SidewaysStrategy 초기화 실패] {e}")
+        logger.error(f"[스택 트레이스] {traceback.format_exc()}")
+        if trade_recorder:
+            trade_recorder.close()
+        sys.exit(1)
 
     current_trend = None
     success_count = 0
     skipped_count = 0
     repeat_entry_count = 0  # 동일 포지션 반복 진입 카운트
     loop_count = 0
+    rate_limit_backoff_sec = config.get('api', {}).get('rate_limit_backoff_sec', 60)
     start_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     last_trades_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S') #'1970-01-01 00:00:00'  # 마지막 거래 시간 초기화 오래전으로
     last_trade_position = None
@@ -271,9 +290,10 @@ def main():
                     
                     if repeat_entry_count < entry_split_count:
                         if entry_position != last_trade_position:
-                            send_telegram(f"{entry_position} 신호: {current_price} ")
+                            requested_symbol = symbol.replace('/', '').split(':')[0]
+                            send_telegram(f"{requested_symbol} {entry_position} 신호: {current_price} ")
 
-                        if config['trading'].get('read_only_mode', False) is False: 
+                        if True: #config['trading'].get('read_only_mode', False) is False: 
                             # 거래실행 함수 호출 (양방향 포지션 구조 대응)
                             rtn_success_count, rtn_skipped_count = strategy.execute_transaction(entry_position, close_position)
                             success_count += rtn_success_count
@@ -298,8 +318,17 @@ def main():
             # 24시간 거래금액 및 손익금액 로그
             strategy.position_manager.log_24h_performance(exchange, symbol, logger)
 
+        except ccxt.RateLimitExceeded as e:
+            logger.warning(
+                "[Bybit 레이트 리밋] API 호출 제한에 도달했습니다. "
+                f"{rate_limit_backoff_sec}초 후 재시도합니다: {e}"
+            )
+            time.sleep(rate_limit_backoff_sec)
+            continue
         except Exception as e:
             logger.error(f"[에러] {e}")
+            import traceback
+            logger.error(f"[스택 트레이스] {traceback.format_exc()}")
 
         loop_count += 1
         current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')

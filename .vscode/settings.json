@@ -64,6 +64,7 @@
     // 메뉴바 표시 (Windows/Linux)
     "window.menuBarVisibility": "default",
     "task.allowAutomaticTasks": "on",
+    "workbench.editor.tabActionLocation": "right",
     
     // 메뉴바 표시 (Mac)
     // "window.menuBarVisibility": "visible",

@@ -104,7 +104,7 @@ recorder.close()
 - ✅ 프로그램 종료 시 데이터베이스 정상 종료
 
 ### 5. 전략 모듈 통합
-**파일**: `sideways/sideways_strategy.py`
+**파일**: `sideways/simple_strategy.py`
 
 #### 수정 사항:
 - ✅ TradeRecorder import 추가
@@ -202,7 +202,7 @@ python sideways/example_database_usage.py
    # 데이터베이스 생성
    mysql -u root -p
    CREATE DATABASE trading_bot CHARACTER SET utf8mb4;
-   CREATE USER 'trading_bot'@'localhost' IDENTIFIED BY 'password';
+   CREATE USER 'trading_bot'@'localhost' IDENTIFIED BY '3542';
    GRANT ALL PRIVILEGES ON trading_bot.* TO 'trading_bot'@'localhost';
    FLUSH PRIVILEGES;
    ```
@@ -214,7 +214,7 @@ python sideways/example_database_usage.py
        "type": "mysql",
        "host": "localhost",
        "user": "trading_bot",
-       "password": "password",
+       "password": "3542",
        "database": "trading_bot",
        "save_trades": true
      }
@@ -380,7 +380,7 @@ ORDER BY total_pnl DESC;
 ### 수정된 파일
 1. `sideways/config.json` - 데이터베이스 설정 추가
 2. `sideways/main.py` - TradeRecorder 통합
-3. `sideways/sideways_strategy.py` - 거래 기록 저장 로직 추가
+3. `sideways/simple_strategy.py` - 거래 기록 저장 로직 추가
 4. `sideways/requirements.txt` - 의존성 추가
 
 ---

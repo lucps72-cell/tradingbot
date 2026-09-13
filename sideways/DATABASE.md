@@ -39,6 +39,9 @@ pip install -r requirements.txt
 pip install mysql-connector-python
 ```
 
+# mysqldump -u root -p [내_디비_이름] > c:\backup_db.sql
+mysqldump -u root -p trading_bot > c:\xampp2\mysql\backup_db.sql
+# mysql -u root [내_디비_이름] < c:\xampp2\mysql\backup_db.sql
 ---
 
 ## 설정
@@ -278,7 +281,7 @@ CREATE TABLE trade_details (
 #### 명령줄
 ```bash
 # SQLite CLI 열기
-sqlite3 sideways/trades.db
+.\sqlite3 sideways/trades.db
 
 # 최근 거래 조회
 SELECT * FROM trades ORDER BY timestamp DESC LIMIT 10;
@@ -362,7 +365,7 @@ mysql -u root -p -e "SELECT 1;"
 CREATE DATABASE trading_bot CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 # 사용자 생성 (권장)
-CREATE USER 'trading_bot'@'localhost' IDENTIFIED BY 'your_password';
+CREATE USER 'trading_bot'@'localhost' IDENTIFIED BY '3542';
 GRANT ALL PRIVILEGES ON trading_bot.* TO 'trading_bot'@'localhost';
 FLUSH PRIVILEGES;
 ```

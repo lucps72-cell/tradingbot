@@ -1,5 +1,4 @@
 from typing import Optional
-from venv import logger
 import pandas as pd
 
 def get_ema_values_for_realtime(exchange, symbol: str, limits: dict = {"1m": 200, "5m": 200}):

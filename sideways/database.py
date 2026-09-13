@@ -26,6 +26,11 @@ class TradeDatabase(ABC):
     def save_trade(self, trade_data: Dict[str, Any]) -> bool:
         """거래 기록 저장"""
         pass
+
+    @abstractmethod
+    def close_trade(self, symbol: str, side: str, trade_data: Dict[str, Any]) -> bool:
+        """열린 거래를 청산 정보로 갱신"""
+        pass
     
     @abstractmethod
     def get_trades(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict]:
@@ -66,8 +71,10 @@ class SQLiteDatabase(TradeDatabase):
             self.cursor = self.conn.cursor()
             
             # trades 테이블 생성
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS trades (
+            self.cursor.execute("SHOW TABLES LIKE 'trades'")
+            if not self.cursor.fetchone():
+                self.cursor.execute('''
+                CREATE TABLE trades (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
                     symbol TEXT NOT NULL,
@@ -171,6 +178,37 @@ class SQLiteDatabase(TradeDatabase):
         except Exception as e:
             active_logger.error(f"SQLite 거래 저장 실패: {e}")
             return False
+
+    def close_trade(self, symbol: str, side: str, trade_data: Dict[str, Any]) -> bool:
+        """가장 최근의 열린 거래를 청산 정보로 갱신"""
+        try:
+            now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self.cursor.execute('''
+                SELECT id FROM trades
+                WHERE symbol = ? AND side = ? AND status = 'open'
+                ORDER BY id DESC LIMIT 1
+            ''', (symbol, side))
+            row = self.cursor.fetchone()
+            if not row:
+                active_logger.warning(f"SQLite 열린 거래를 찾을 수 없음: {symbol} {side}")
+                return False
+
+            self.cursor.execute('''
+                UPDATE trades
+                SET exit_price = ?, exit_time = ?, pnl = ?, pnl_pct = ?,
+                    status = 'closed', signal_reason = ?, updated_at = ?
+                WHERE id = ?
+            ''', (
+                trade_data.get('exit_price'), trade_data.get('exit_time'),
+                trade_data.get('pnl'), trade_data.get('pnl_pct'),
+                trade_data.get('signal_reason', ''), now, row[0]
+            ))
+            self.conn.commit()
+            active_logger.debug(f"SQLite 거래 청산 갱신 완료 (ID: {row[0]}): {symbol} {side}")
+            return self.cursor.rowcount == 1
+        except Exception as e:
+            active_logger.error(f"SQLite 거래 청산 갱신 실패: {e}")
+            return False
     
     def get_trades(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict]:
         """거래 기록 조회"""
@@ -273,25 +311,50 @@ class MySQLDatabase(TradeDatabase):
         self.port = port
         self.conn = None
         self.cursor = None
-        self.initialize()
+        self.initialized = self.initialize()
     
     def initialize(self) -> bool:
         """MySQL 데이터베이스 초기화"""
         try:
             import mysql.connector
             
+            # 1단계: 데이터베이스 없이 MySQL에 먼저 연결
+            temp_conn = mysql.connector.connect(
+                host=self.host,
+                user=self.user,
+                password=self.password,
+                port=self.port,
+                connection_timeout=5,
+                use_pure=True
+            )
+            temp_cursor = temp_conn.cursor()
+            
+            # 데이터베이스 생성 (없으면)
+            temp_cursor.execute(
+                f"CREATE DATABASE IF NOT EXISTS `{self.database}` "
+                "CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+            )
+            temp_conn.commit()
+            temp_cursor.close()
+            temp_conn.close()
+            
+            # 2단계: 생성된 데이터베이스에 연결
             self.conn = mysql.connector.connect(
                 host=self.host,
                 user=self.user,
                 password=self.password,
                 database=self.database,
-                port=self.port
+                port=self.port,
+                connection_timeout=5,
+                use_pure=True
             )
             self.cursor = self.conn.cursor(dictionary=True)
             
             # trades 테이블 생성
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS trades (
+            self.cursor.execute("SHOW TABLES LIKE 'trades'")
+            if not self.cursor.fetchone():
+                self.cursor.execute('''
+                CREATE TABLE trades (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     timestamp DATETIME NOT NULL,
                     symbol VARCHAR(50) NOT NULL,
@@ -317,11 +380,13 @@ class MySQLDatabase(TradeDatabase):
                     INDEX idx_timestamp (timestamp),
                     INDEX idx_side (side)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ''')
+                ''')
             
             # trade_details 테이블 생성
-            self.cursor.execute('''
-                CREATE TABLE IF NOT EXISTS trade_details (
+            self.cursor.execute("SHOW TABLES LIKE 'trade_details'")
+            if not self.cursor.fetchone():
+                self.cursor.execute('''
+                CREATE TABLE trade_details (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     trade_id INT,
                     detail_type VARCHAR(50),
@@ -330,19 +395,23 @@ class MySQLDatabase(TradeDatabase):
                     FOREIGN KEY(trade_id) REFERENCES trades(id),
                     INDEX idx_trade_id (trade_id)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-            ''')
+                ''')
             
             self.conn.commit()
-            active_logger.info(f"MySQL 데이터베이스 초기화 완료: {self.host}/{self.database}")
+            print(f"[MySQL] 데이터베이스 초기화 완료: {self.host}/{self.database}")
             return True
         except Exception as e:
-            active_logger.error(f"MySQL 데이터베이스 초기화 실패: {e}")
+            print(f"[MySQL] 데이터베이스 초기화 실패: {e}")
+            import traceback
+            traceback.print_exc()
             return False
     
     def save_trade(self, trade_data: Dict[str, Any]) -> bool:
         """거래 기록 저장"""
         try:
-            import mysql.connector
+            if not self.initialized or not self.conn or not self.cursor:
+                active_logger.error("MySQL 거래 저장 실패: 데이터베이스 연결이 초기화되지 않았습니다.")
+                return False
             
             now = datetime.now()
             
@@ -400,12 +469,43 @@ class MySQLDatabase(TradeDatabase):
             self.conn.commit()
             active_logger.debug(f"MySQL 거래 저장 완료: {required_fields['symbol']} {required_fields['side']}")
             return True
-        except mysql.connector.errors.ProgrammingError:
-            # 테이블이 없으면 자동으로 생성
-            self.initialize()
-            return self.save_trade(trade_data)
         except Exception as e:
             active_logger.error(f"MySQL 거래 저장 실패: {e}")
+            return False
+
+    def close_trade(self, symbol: str, side: str, trade_data: Dict[str, Any]) -> bool:
+        """가장 최근의 열린 거래를 청산 정보로 갱신"""
+        try:
+            if not self.initialized or not self.conn or not self.cursor:
+                active_logger.error("MySQL 거래 청산 실패: 데이터베이스 연결이 초기화되지 않았습니다.")
+                return False
+            now = datetime.now()
+            self.cursor.execute('''
+                SELECT id FROM trades
+                WHERE symbol = %s AND side = %s AND status = 'open'
+                ORDER BY id DESC LIMIT 1
+            ''', (symbol, side))
+            row = self.cursor.fetchone()
+            if not row:
+                active_logger.warning(f"MySQL 열린 거래를 찾을 수 없음: {symbol} {side}")
+                return False
+
+            trade_id = row['id']
+            self.cursor.execute('''
+                UPDATE trades
+                SET exit_price = %s, exit_time = %s, pnl = %s, pnl_pct = %s,
+                    status = 'closed', signal_reason = %s, updated_at = %s
+                WHERE id = %s
+            ''', (
+                trade_data.get('exit_price'), trade_data.get('exit_time'),
+                trade_data.get('pnl'), trade_data.get('pnl_pct'),
+                trade_data.get('signal_reason', ''), now, trade_id
+            ))
+            self.conn.commit()
+            active_logger.debug(f"MySQL 거래 청산 갱신 완료 (ID: {trade_id}): {symbol} {side}")
+            return self.cursor.rowcount == 1
+        except Exception as e:
+            active_logger.error(f"MySQL 거래 청산 갱신 실패: {e}")
             return False
     
     def get_trades(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict]:
@@ -516,6 +616,9 @@ def create_database(config: Dict[str, Any]) -> Optional[TradeDatabase]:
                 database=db_config.get('database', 'trading_bot'),
                 port=db_config.get('port', 3306)
             )
+            if not db.initialized:
+                active_logger.error("MySQL 데이터베이스 연결 실패")
+                return None
             active_logger.info(f"MySQL 데이터베이스 생성: {db_config.get('host')}/{db_config.get('database')}")
             return db
         

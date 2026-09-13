@@ -1,10 +1,10 @@
 import datetime
 import time
+import os
 import ccxt
 import pandas as pd
 
-from ast import Dict
-from typing import Optional, Tuple
+from typing import Dict, Optional, Tuple
 from sideways.color_utils import Colors
 from sideways.config_loader import load_config
 import logging
@@ -141,7 +141,7 @@ class PositionManager:
                 #active_logger.info(f"[청산시도] {s.upper()} 시장가 청산 시도: {close_amount} {symbol}")
 
                 try:
-                    config = load_config('config.json')
+                    config = self.config if self.config else load_config(os.path.join(os.path.dirname(__file__), 'config.json'))
                     position_mode = config['trading'].get('position_mode', 'hedge')
                     params = {}
                     if position_mode == 'hedge':
@@ -428,8 +428,7 @@ class PositionManager:
                 if should_close:
                     active_logger.info(f"{Colors.YELLOW}⚪ 트레일링 스탑 : 청산 | 포지션: {side} | 현재가: {current_price} | 청산가: {new_sl}{Colors.RESET}")
                     trade_logger.info(f"{Colors.YELLOW}⚪ 트레일링 스탑 : 청산 | 포지션: {side} | 현재가: {current_price} | 청산가: {new_sl}{Colors.RESET}")
-                    self.close_position(current_price, side=side)
-                    #time.sleep(1)  # 주문 갱신 대기 (시장 상황에 따라 조절 가능)
+                    self.close_position(exchange, symbol, side=side, amount=None)
 
     # 포지션별 최고 수익률 추적 (Profit Trailing Stop용)
     # 구조: {symbol_side: {'peak_pnl': float, 'entry_price': float}}
@@ -492,28 +491,26 @@ class PositionManager:
                 active_logger.info("진입가가 유효하지 않음")
                 return False
 
-            qty = usdt_amount     
-            if qty <= 0:
+            if usdt_amount <= 0:
                 active_logger.info(f"주문수량 유효하지 않음")
                 return False
             
             # 3-3. 잔고 기반 최대 주문 비중 조절 (예: 10%로 제한)
-            effective_notional = self.get_adjusted_trade_amount(exchange, float(usdt_amount), leverage, max_position_pct=0.1)
+            effective_notional = self.get_adjusted_trade_amount(exchange, float(usdt_amount), leverage, max_position_pct=0.16)
             if effective_notional <= 0:
                 active_logger.info("잔고 기반 최대 주문 비중으로 인해 주문 금액이 0 이하로 조정되어 진입을 스킵합니다.")
                 return False
             
             # 4. 주문 실행
-            order = self.place_order(exchange, symbol, 'limit', action, qty, entry_price) # 지정가 주문
+            order = self.place_order(exchange, symbol, 'limit', action, effective_notional, entry_price) # 지정가 주문
             if not order:
                 active_logger.info("주문 실패: place_order 결과 None")
                 return False
-            active_logger.info(f"주문 완료: {symbol} {action.upper()} price={entry_price}, qty={qty:.4f} | amount_mode={amount_mode} notional={effective_notional:.2f}USDT leverage={leverage}x")
+            active_logger.info(f"주문 완료({order.get('id')}): {symbol} {action.upper()} price={entry_price}, qty={effective_notional:.4f}, amount_mode={amount_mode}, leverage={leverage}x")
 
             time.sleep(4)  # 주문 체결 대기 (시장 상황에 따라 조절 가능)
 
             # 5. 미체결 주문 처리 (양방향 모두 취소)
-            #self.cancel_all_open_orders(exchange, symbol)
             self.cancel_all_side_orders(exchange, symbol, side=action)
 
             cur_pos = self.get_current_position(exchange, symbol, action)
@@ -560,11 +557,9 @@ class PositionManager:
         try:
             balance = exchange.fetch_balance()
             usdt_available = balance.get('USDT', {}).get('free', None)
-            if usdt_available is not None:
-                usdt_available = balance.get('total', {}).get('USDT', None)
-            else:
+            if usdt_available is None:
                 active_logger.warning("USDT 잔고 조회 실패, 입력값 그대로 사용")
-                return float(requested_amount)
+                usdt_available = float(requested_amount)
             
             max_trade_amount = float(usdt_available) * float(max_position_pct) * float(leverage)
             if max_trade_amount <= 0:
@@ -594,7 +589,7 @@ class PositionManager:
         - 보정 후에도 방향이 뒤바뀌지 않도록 최소 1틱 간격 보장
         """
         # config.json에서 설정 로드
-        config = load_config('config.json')
+        config = self.config if self.config else load_config(os.path.join(os.path.dirname(__file__), 'config.json'))
         
         tick = get_price_tick_size(symbol)
         sl, tp = sl_price, tp_price
@@ -710,7 +705,7 @@ class PositionManager:
                 "slOrderType": "Market"
             }
 
-            config = load_config('config.json')
+            config = self.config if self.config else load_config(os.path.join(os.path.dirname(__file__), 'config.json'))
             position_mode = config['trading'].get('position_mode', 'hedge')
             if position_mode == 'hedge':
                 params["positionIdx"] = int(position_idx)
@@ -902,6 +897,86 @@ class PositionManager:
         except Exception as e:
             active_logger.error(f"TP/SL 조회 실패: {e}")
             return None, None
+
+    def get_leverage(self, exchange: ccxt.Exchange, symbol: str, position_side: str = 'long') -> Optional[float]:
+        """
+        Bybit에서 현재 레버리지 값을 조회합니다.
+        
+        Args:
+            exchange: CCXT 거래소 객체
+            symbol: 거래 심볼 (예: 'XRP/USDT:USDT')
+            position_side: 포지션 방향 ('long' 또는 'short')
+            
+        Returns:
+            레버리지 값 (float) 또는 None
+        """
+        try:
+            positions = exchange.fetch_positions([symbol], params={"recv_window": 30000})
+            if not positions:
+                active_logger.debug(f"[레버리지 조회] 열린 포지션 없음: {symbol}")
+                return None
+            
+            for pos in positions:
+                pos_side = pos.get('side')
+                if pos_side == position_side:
+                    leverage = pos.get('leverage')
+                    if leverage is None and isinstance(pos.get('info'), dict):
+                        leverage = pos['info'].get('leverage')
+                    if leverage is not None:
+                        leverage = float(leverage)
+                        return leverage
+            
+            active_logger.debug(f"[레버리지 조회] {position_side} 열린 포지션 없음")
+            return None
+            
+        except Exception as e:
+            active_logger.error(f"[레버리지 조회] 오류: {e}")
+            return None
+
+    def set_leverage(self, exchange: ccxt.Exchange, symbol: str, leverage: float, position_side: str = 'long') -> bool:
+        """
+        Bybit에서 레버리지를 설정합니다.
+        
+        Args:
+            exchange: CCXT 거래소 객체
+            symbol: 거래 심볼 (예: 'XRP/USDT:USDT')
+            leverage: 설정할 레버리지 값 (숫자)
+            position_side: 포지션 방향 ('long' 또는 'short')
+            
+        Returns:
+            성공 여부 (bool)
+        """
+        try:
+            leverage = float(leverage)
+            if leverage < 1 or leverage > 100:
+                active_logger.error(f"[레버리지 설정] 잘못된 레버리지 값: {leverage} (범위: 1~100)")
+                return False
+            
+            # Bybit API를 사용한 레버리지 설정
+            position_idx = 1 if position_side == 'long' else 2
+            
+            params = {
+                "category": "linear",
+                "positionIdx": position_idx,
+            }
+            
+            # CCXT의 set_leverage 메서드 사용
+            result = exchange.set_leverage(int(leverage), symbol, params)
+            
+            if result:
+                active_logger.info(f"[레버리지 설정] {symbol} {position_side.upper()}: {leverage}x 설정 완료")
+                return True
+            else:
+                active_logger.warning(f"[레버리지 설정] {symbol} {position_side.upper()}: {leverage}x 설정 실패")
+                return False
+                
+        except Exception as e:
+            # Bybit retCode 110043 means the requested value is already active.
+            if '110043' in str(e) or 'leverage not modified' in str(e).lower():
+                active_logger.debug(f"[레버리지 설정] {symbol} {position_side.upper()}: 이미 {leverage}x로 설정됨")
+                return True
+            active_logger.error(f"[레버리지 설정] 오류 ({symbol}, {position_side}, {leverage}x): {e}")
+            return False
 
     def log_position_status(self, exchange, symbol, logger):
         """
@@ -1103,7 +1178,7 @@ class PositionManager:
 
         if len(performance_by_symbol) > 1:
             logger.info(
-                f"{Colors.BRIGHT_MAGENTA}{Colors.BOLD}[24h실현손익 합계] LONG 손익 = {total_long_pnl:.4f} | "
+                f"{Colors.BRIGHT_MAGENTA}{Colors.BOLD}[24h실현손익] 합계    | LONG 손익 = {total_long_pnl:.4f} | "
                 f"SHORT 손익 = {total_short_pnl:.4f} | 손익합 = {total_pnl_sum:.4f}, 수수료 = {total_fee:.4f}{Colors.RESET}{Colors.END}"
             )
 

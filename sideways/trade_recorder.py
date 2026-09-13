@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from typing import Optional, Dict, Any
 from sideways.database import TradeDatabase, create_database
+from sideways.common import send_telegram
 
 active_logger = logging.getLogger(__name__)
 
@@ -22,14 +23,23 @@ class TradeRecorder:
         self.db_enabled = config.get('database', {}).get('save_trades', True)
         
         if self.db_enabled:
-            self.db = create_database(config)
+            try:
+                self.db = create_database(config)
+            except Exception as e:
+                active_logger.error(f"거래 레코더 초기화: 데이터베이스 연결 중 오류 발생: {e}")
+                send_telegram(f"⚠️ [DB 연결 오류] 거래 데이터베이스 연결 중 예외 발생: {e}\n(거래 기록은 저장되지 않습니다)")
+                self.db = None
+                return
+
             if self.db:
                 active_logger.info("거래 레코더 초기화 완료 (DB 저장 활성화)")
             else:
                 active_logger.warning("거래 레코더 초기화: 데이터베이스 연결 실패 (로그 파일에만 기록됨)")
+                send_telegram("⚠️ [DB 연결 실패] 거래 데이터베이스 연결에 실패했습니다.\n(거래 기록은 저장되지 않고 로그 파일에만 남습니다)")
         else:
             active_logger.info("거래 레코더 초기화 완료 (DB 저장 비활성화)")
-    
+
+
     def record_entry(self, 
                      symbol: str,
                      side: str,
@@ -141,7 +151,7 @@ class TradeRecorder:
                 'signal_reason': exit_reason,
             }
             
-            return self.db.save_trade(trade_data)
+            return self.db.close_trade(symbol, side, trade_data)
         except Exception as e:
             active_logger.error(f"거래 청산 기록 실패: {e}")
             return False

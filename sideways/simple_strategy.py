@@ -28,7 +28,7 @@ class SidewaysStrategy:
         self.rsi_period = rsi_period
         self.rsi_overbought = rsi_overbought
         self.rsi_oversold = rsi_oversold
-        self.position_manager = PositionManager(exchange, symbol)
+        self.position_manager = PositionManager(exchange, symbol, config)
         self.risk_manager = RiskManager()
         self.current_price = None
 
@@ -45,8 +45,13 @@ class SidewaysStrategy:
         return_position_msg = None
 
         # 1분봉/5분봉 OHLCV list 조회
+        active_logger.debug(f"[실행중] OHLCV 1분봉 조회 시작...")
         ohlcv_low = self.exchange.fetch_ohlcv(self.symbol, timeframe='1m', limit=self.window_size)
+        active_logger.debug(f"[완료] OHLCV 1분봉 조회: {len(ohlcv_low) if ohlcv_low else 0}개")
+        
+        active_logger.debug(f"[실행중] OHLCV 5분봉 조회 시작...")
         ohlcv_hgh = self.exchange.fetch_ohlcv(self.symbol, timeframe='5m', limit=self.window_size)
+        active_logger.debug(f"[완료] OHLCV 5분봉 조회: {len(ohlcv_hgh) if ohlcv_hgh else 0}개")
         #print(f"[DEBUG] ohlcv_low: {repr(ohlcv_low)[:100]}")
         #print(f"[DEBUG] ohlcv_hgh: {repr(ohlcv_hgh)[:400]}")
         
@@ -79,9 +84,11 @@ class SidewaysStrategy:
         # 실시간 현재가 조회
         current_price = self.position_manager.get_current_price(self.exchange, self.symbol)
         self.current_price = current_price
+        
+
         # 현재가의 EMA/볼린저밴드 상대 위치 정보 출력
         price_pos_info = self.get_price_position(current_price, ema_low, bb_low_top.iloc[-1], bb_low_mid.iloc[-1], bb_low_down.iloc[-1])
-        active_logger.info(f"⚪ 직전추세: {current_trend}, 현재가: {current_price}, EMA: {price_pos_info['closest_ema']}, BB: {price_pos_info['closest_bb']}, BB구간: {price_pos_info['bb_zone']}")
+        active_logger.info(f"⚪ 직전추세: {current_trend}, 현재가: {current_price}, EMA: {price_pos_info['closest_ema']}, BB: {price_pos_info['closest_bb']}, BB구간: {price_pos_info['bb_zone']} ")
 
         # 1차 추세 판단(5분봉)
         trend_result_first = self.determine_trend_signal(
@@ -109,12 +116,6 @@ class SidewaysStrategy:
         else:
             active_logger.info(f"{Colors.YELLOW}⚪ 2차 추세 : 횡보{Colors.END}")
         
-        # 음성 알림 (추세 변화 시)
-        # if current_trend != self.result_first_trend and self.result_first_trend in ["uptrend", "downtrend"]:
-        #     play_voice_alert_signal("일차", self.result_first_trend)
-        # else:
-        #     if self.result_second_trend in ["uptrend", "downtrend"]:
-        #         play_voice_alert_signal("이차", self.result_second_trend)
         
         # 진입/청산 신호 판단(상위 추세 기반)
         return_position_hgh, return_msg_hgh = self.determine_trade_signal(ohlcv_hgh, df_hgh, ema_hgh_series, ema_hgh, bb_hgh_top, bb_hgh_mid, bb_hgh_down, rsi_hgh, current_price, tf_hgh_fast, tf_hgh_medium)
@@ -193,7 +194,7 @@ class SidewaysStrategy:
             prev_bb_dn1 = bb_hgh_down.iloc[-1]
             if prev_close2 < prev_bb_dn2 and prev_rsi2 < 30 and prev_close1 < prev_bb_dn1 and prev_rsi1 > 30:
                 return_position_hgh = "long"
-                return_position_msg = f"매수(5m): 직전고가({prev_close2:.4f} → {prev_close1:.4f}), 직전RSI({prev_rsi2:.2f} → {prev_rsi1:.2f}), 밴드고점({prev_bb_up2:.4f} → {prev_bb_up1:.4f}) | {return_position_msg}"
+                return_position_msg = f"매수(5m): 직전저가({prev_close2:.4f} → {prev_close1:.4f}), 직전RSI({prev_rsi2:.2f} → {prev_rsi1:.2f}), 밴드저점({prev_bb_dn2:.4f} → {prev_bb_dn1:.4f}) | {return_position_msg}"
             # 2차(1분봉) : 직전 종가가 밴드 저점 위, 직전 RSI < 30, 현재가 > 직전 시가, RSI > 이전 RSI
             prev_close2 = df_low['low'].iloc[-2]
             prev_close1 = df_low['low'].iloc[-1]
@@ -203,14 +204,14 @@ class SidewaysStrategy:
             prev_bb_dn1 = bb_low_down.iloc[-1]
             if prev_close2 < prev_bb_dn2 and prev_rsi2 < 30  and prev_close1 > prev_close2 and current_price > prev_close1 and current_price > prev_bb_dn1:
                 return_position_low = "long"
-                return_position_msg = f"매수(1m): 직전고가({prev_close2:.4f} → {prev_close1:.4f}), 직전RSI({prev_rsi2:.2f} → {prev_rsi1:.2f}), 밴드고점({prev_bb_up2:.4f} → {prev_bb_up1:.4f}) | {return_position_msg}"
+                return_position_msg = f"매수(1m): 직전저가({prev_close2:.4f} → {prev_close1:.4f}), 직전RSI({prev_rsi2:.2f} → {prev_rsi1:.2f}), 밴드저점({prev_bb_dn2:.4f} → {prev_bb_dn1:.4f}) | {return_position_msg}"
             elif prev_close1 < prev_bb_dn1 and prev_rsi2 < prev_rsi1 and prev_rsi1 < 35 and current_price > prev_close1 and current_price > prev_bb_dn1:
                 return_position_low = "long"
-                return_position_msg = f"매수(1m): 직전고가({prev_close2:.4f} → {prev_close1:.4f}), 직전RSI({prev_rsi2:.2f} → {prev_rsi1:.2f}), 밴드고점({prev_bb_up2:.4f} → {prev_bb_up1:.4f}) | {return_position_msg}"
+                return_position_msg = f"매수(1m): 직전저가({prev_close2:.4f} → {prev_close1:.4f}), 직전RSI({prev_rsi2:.2f} → {prev_rsi1:.2f}), 밴드저점({prev_bb_dn2:.4f} → {prev_bb_dn1:.4f}) | {return_position_msg}"
 
             if bull_divergence_second:
                 return_position_low = "long"
-                return_position_msg = f"매수(1m) RSI상승다이버젼스: 직전고가({prev_close2:.4f} → {prev_close1:.4f}), 직전RSI({prev_rsi2:.2f} → {prev_rsi1:.2f}), 밴드고점({prev_bb_up2:.4f} → {prev_bb_up1:.4f}) | {return_position_msg}"
+                return_position_msg = f"매수(1m) RSI상승다이버젼스: 직전저가({prev_close2:.4f} → {prev_close1:.4f}), 직전RSI({prev_rsi2:.2f} → {prev_rsi1:.2f}), 밴드저점({prev_bb_dn2:.4f} → {prev_bb_dn1:.4f}) | {return_position_msg}"
 
         else:
             # 연속 양봉/음봉 제한
@@ -251,14 +252,12 @@ class SidewaysStrategy:
             active_logger.info(f"{Colors.GREEN}🟢 진입 : 매수 ({current_price}){Colors.END} | {return_position_msg}")
             trade_logger.info(f"🟢 진입 : 매수 | {current_price:.4f} | {return_position_msg}")
             return_position = "long"
-            play_voice_alert("매수 신호 발생")
-            #send_telegram(f"매수 신호 발생: {current_price} " + return_position_msg)
+            play_voice_alert("매수 신호 ")
         elif return_position_hgh == "short" or return_position_low == "short": 
             active_logger.info(f"{Colors.RED}🔴 진입 : 매도 ({current_price}){Colors.END} | {return_position_msg}")
             trade_logger.info(f"🔴 진입 : 매도 | {current_price:.4f} | {return_position_msg}")
             return_position = "short"
-            play_voice_alert("매도 신호 발생")
-            #send_telegram(f"매도 신호 발생: {current_price} " + return_position_msg)
+            play_voice_alert("매도 신호 ")
         else:
             if return_close == "long":
                 active_logger.info(f"{Colors.GREEN}🟢 청산 : 매수 ({current_price}){Colors.END} | {return_position_msg}")
@@ -318,26 +317,27 @@ class SidewaysStrategy:
             # 반대 포지션 존재 시 청산 정책 (True: 자동청산, False: 청산안함)
             auto_close_opposite = self.config['trading'].get('auto_close_opposite', False)
             if auto_close_opposite:
-                if action == 'long' and has_short:
-                    active_logger.info(f"🔄 LONG 진입 → SHORT 포지션 청산 시도, 진입가: {short_price}, 수량: {short_amount}")
-                    try:
-                        close_result = self.position_manager.close_position(self.exchange, self.symbol, 'short', short_amount)
-                        if close_result:
-                            active_logger.info(f"{Colors.GREEN}✓ SHORT 포지션 청산 성공!{Colors.END}")
-                        else:
-                            active_logger.error(f"{Colors.RED}✗ SHORT 포지션 청산 실패!{Colors.END}")
-                    except Exception as e:
-                        active_logger.error(f"{Colors.RED}✗ SHORT 포지션 청산 예외 발생: {e}{Colors.END}")
-                elif action == 'short' and has_long:
-                    active_logger.info(f"🔄 SHORT 진입 → LONG 포지션 청산 시도, 진입가: {long_price}, 수량: {long_amount}")
-                    try:
-                        close_result = self.position_manager.close_position(self.exchange, self.symbol, 'long', long_amount)
-                        if close_result:
-                            active_logger.info(f"{Colors.GREEN}✓ LONG 포지션 청산 성공!{Colors.END}")
-                        else:
-                            active_logger.error(f"{Colors.RED}✗ LONG 포지션 청산 실패!{Colors.END}")
-                    except Exception as e:
-                        active_logger.error(f"{Colors.RED}✗ LONG 포지션 청산 예외 발생: {e}{Colors.END}")
+                if self.config['trading'].get('read_only_mode', False) is False: 
+                    if action == 'long' and has_short:
+                        active_logger.info(f"🔄 LONG 진입 → SHORT 포지션 청산 시도, 진입가: {short_price}, 수량: {short_amount}")
+                        try:
+                            close_result = self.position_manager.close_position(self.exchange, self.symbol, 'short', short_amount)
+                            if close_result:
+                                active_logger.info(f"{Colors.GREEN}✓ SHORT 포지션 청산 성공!{Colors.END}")
+                            else:
+                                active_logger.error(f"{Colors.RED}✗ SHORT 포지션 청산 실패!{Colors.END}")
+                        except Exception as e:
+                            active_logger.error(f"{Colors.RED}✗ SHORT 포지션 청산 예외 발생: {e}{Colors.END}")
+                    elif action == 'short' and has_long:
+                        active_logger.info(f"🔄 SHORT 진입 → LONG 포지션 청산 시도, 진입가: {long_price}, 수량: {long_amount}")
+                        try:
+                            close_result = self.position_manager.close_position(self.exchange, self.symbol, 'long', long_amount)
+                            if close_result:
+                                active_logger.info(f"{Colors.GREEN}✓ LONG 포지션 청산 성공!{Colors.END}")
+                            else:
+                                active_logger.error(f"{Colors.RED}✗ LONG 포지션 청산 실패!{Colors.END}")
+                        except Exception as e:
+                            active_logger.error(f"{Colors.RED}✗ LONG 포지션 청산 예외 발생: {e}{Colors.END}")
 
             # 진입 시도 (분할 진입 로직 개선)
             analysis = self.position_manager.get_entry_signal(self.exchange, self.symbol, action, config=self.config)
@@ -347,11 +347,19 @@ class SidewaysStrategy:
 
             action = 'long' if analysis['type'].upper() == 'LONG' else 'short'
             split_count = int(float(self.config['trading']['entry_split_count']))
-            leverage    = float(self.config['trading'].get('leverage', 1))
+            configured_leverage = float(self.config['trading'].get('leverage', 1))
             amount_mode = self.config['trading'].get('amount_mode', 'margin')
             order_amount_usdt = float(self.config['trading']['order_amount_usdt'])
 
             # 분할 진입 금액 계산 (레버리지 반영)
+            if action == 'long':
+                leverage = self.position_manager.get_leverage(self.exchange, self.symbol, 'long')
+            else:
+                leverage = self.position_manager.get_leverage(self.exchange, self.symbol, 'short')
+            if leverage == 0 or leverage == None:
+                self.position_manager.set_leverage(self.exchange, self.symbol, configured_leverage, action)
+                leverage = configured_leverage
+
             if amount_mode == 'margin':
                 split_amount = (order_amount_usdt * leverage) / split_count
             else:
@@ -370,9 +378,7 @@ class SidewaysStrategy:
             current_entry_price = float(analysis['entry_price'])
             current_sl_price = float(analysis['sl_price']) if 'sl_price' in analysis else 0.0
             current_tp_price = float(analysis['tp_price']) if 'tp_price' in analysis else 0.0
-            #active_logger.info(f"[DEBUG] current_entry_price={current_entry_price}, current_sl_price={current_sl_price}, current_tp_price={current_tp_price}")
             current_entry_qty = split_amount / current_entry_price
-            #active_logger.info(f"[DEBUG] current_entry_qty={current_entry_qty}")
             total_amount = total_entry_amount
 
             # 진입 제한 체크 개선
@@ -383,7 +389,6 @@ class SidewaysStrategy:
                 entry_limit_flag = True
             # 2. 분할 진입 총액 초과 체크
             max_entry_amount = (order_amount_usdt * leverage) if amount_mode == 'margin' else order_amount_usdt
-            #active_logger.info(f"[DEBUG] max_entry_amount={max_entry_amount}")
             if total_amount + split_amount > max_entry_amount:
                 active_logger.info(f"{Colors.YELLOW}⚠️ 분할 진입 총액 초과: {(total_amount + split_amount):.2f} > {max_entry_amount:.2f} USDT → 진입 거절{Colors.END}")
                 entry_limit_flag = True
@@ -393,42 +398,45 @@ class SidewaysStrategy:
                     active_logger.error(f"{Colors.RED}✗ 진입 정보(analysis) None 또는 필수값 누락!{Colors.END}")
                     skipped_count += 1
                 else:
-                    active_logger.info(f"{Colors.BLUE}✓ {action.upper()} 포지션 진입 {entry_count+1}/{split_count}회 시도! (총액: {total_amount+split_amount:.2f} USDT) " \
-                                        f"| 진입가: {current_entry_price}, 진입수량: {current_entry_qty:.4f}, 손절가: {analysis['sl_price']}, 익절가: {analysis.get('tp_price'):.4f}{Colors.END}")
-                    success = self.position_manager.execute_trade(
-                        self.exchange,
-                        self.config['trading']['symbol'],
-                        action,
-                        current_entry_qty,
-                        current_entry_price,
-                        current_sl_price,
-                        current_tp_price,
-                        amount_mode=amount_mode,
-                        leverage=leverage
-                    )
-                    if not success:
-                        skipped_count += 1
-                        active_logger.info(f"{Colors.RED}✗ {action.upper()} 포지션 진입 실패! (execute_trade 실패){Colors.END}")
-                    else:
-                        success_count += 1
-                        active_logger.info(f"{Colors.BLUE}✓ {action.upper()} 포지션 진입 {entry_count+1}/{split_count}회 완료!! (총액: {total_amount+split_amount:.2f} USDT) " \
-                                           f"| 진입가: {current_entry_price}, 진입수량: {current_entry_qty:.4f}, 손절가: {analysis['sl_price']:.4f}, 익절가: {analysis.get('tp_price'):.4f}{Colors.END}")
-                        
-                        # 거래 기록 Database저장
-                        if self.trade_recorder:
-                            self.trade_recorder.record_entry(
-                                symbol=self.symbol,
-                                side=action,
-                                entry_price=current_entry_price,
-                                quantity=current_entry_qty,
-                                entry_usdt=split_amount,
-                                tp_price=current_tp_price if current_tp_price > 0 else None,
-                                sl_price=current_sl_price if current_sl_price > 0 else None,
-                                signal_reason=f"{action.upper()} 포지션 진입 {entry_count+1}/{split_count}회",
-                                leverage=int(leverage),
-                                entry_split_count=split_count
-                            )
-                        #time.sleep(2)  # 진입 간 짧은 대기 시간 (API 과부하 방지)
+                    if self.config['trading'].get('read_only_mode', False) is False: 
+                        active_logger.info(f"{Colors.BLUE}✓ {action.upper()} 포지션 진입 {entry_count+1}/{split_count}회 시도! (총액: {total_amount+split_amount:.2f} USDT) " \
+                                            f"| 진입가: {current_entry_price}, 진입수량: {current_entry_qty:.4f}, 손절가: {analysis['sl_price']}, 익절가: {analysis.get('tp_price'):.4f}{Colors.END}")
+                        success = self.position_manager.execute_trade(
+                            self.exchange,
+                            self.config['trading']['symbol'],
+                            action,
+                            current_entry_qty,
+                            current_entry_price,
+                            current_sl_price,
+                            current_tp_price,
+                            amount_mode=amount_mode,
+                            leverage=leverage
+                        )
+                        if not success:
+                            skipped_count += 1
+                            active_logger.info(f"{Colors.RED}✗ {action.upper()} 포지션 진입 실패! (execute_trade 실패){Colors.END}")
+                        else:
+                            success_count += 1
+                            active_logger.info(f"{Colors.BLUE}✓ {action.upper()} 포지션 진입 {entry_count+1}/{split_count}회 완료!! (총액: {total_amount+split_amount:.2f} USDT) " \
+                                            f"| 진입가: {current_entry_price}, 진입수량: {current_entry_qty:.4f}, 손절가: {analysis['sl_price']:.4f}, 익절가: {analysis.get('tp_price'):.4f}{Colors.END}")                        
+
+                    # 거래 기록 Database저장
+                    if self.trade_recorder:
+                        self.trade_recorder.record_entry(
+                            symbol=self.symbol,
+                            side=action,
+                            entry_price=current_entry_price,
+                            quantity=current_entry_qty,
+                            entry_usdt=split_amount,
+                            tp_price=current_tp_price if current_tp_price > 0 else None,
+                            sl_price=current_sl_price if current_sl_price > 0 else None,
+                            signal_reason=f"{action.upper()} 포지션 진입 {entry_count+1}/{split_count}회",
+                            leverage=int(leverage),
+                            entry_split_count=split_count
+                        )
+                        requested_symbol = self.symbol.replace('/', '').split(':')[0]
+                        active_logger.info(f"[DEBUG] 거래 기록 DB저장 완료: {requested_symbol} {action.upper()} 진입 {entry_count+1}/{split_count}회, 진입가: {current_entry_price}, 진입수량: {current_entry_qty:.4f}, 손절가: {current_sl_price:.4f}, 익절가: {current_tp_price:.4f}")
+                        send_telegram(f"{requested_symbol} {action} 진입: {current_entry_price} ")
 
         return success_count, skipped_count
     
