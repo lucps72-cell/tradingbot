@@ -19,7 +19,20 @@ class PositionManager:
         self.config = config
         if exchange is not None and symbol is not None:
             self.fetch_and_set_position(exchange, symbol)
-            
+
+    def _get_config(self) -> Dict:
+        """
+        config 재로딩 패턴 통일용 헬퍼 (2026-09-17 정리).
+        기존엔 이 클래스 안에서 config를 가져오는 방식이 두 가지로 갈라져 있었다:
+        - 대부분의 메서드: `self.config if self.config else load_config(...)` (생성자에서 받은
+          config를 우선 쓰고, 없을 때만 파일에서 새로 읽음)
+        - execute_trade()만 예외적으로 `load_config()`를 매번 새로 호출해서 self.config를
+          완전히 무시했다 — main.py --config로 다른 경로를 지정해도 execute_trade의
+          allow_same_position/max_position_pct 판단에는 반영되지 않는 문제가 있었다.
+        이제 모든 호출부가 이 메서드 하나만 쓰도록 통일한다.
+        """
+        return self.config if self.config else load_config(os.path.join(os.path.dirname(__file__), 'config.json'))
+
     def get_current_price(self, exchange, symbol: str) -> float:
         """
         거래소에서 실시간 현재가를 조회한다.
@@ -141,7 +154,7 @@ class PositionManager:
                 #active_logger.info(f"[청산시도] {s.upper()} 시장가 청산 시도: {close_amount} {symbol}")
 
                 try:
-                    config = self.config if self.config else load_config(os.path.join(os.path.dirname(__file__), 'config.json'))
+                    config = self._get_config()
                     position_mode = config['trading'].get('position_mode', 'hedge')
                     params = {}
                     if position_mode == 'hedge':
@@ -469,7 +482,11 @@ class PositionManager:
             # 진입여부가 True이면 동일포지션 존재시 진입, false이면 진입안함
             # 청산여부가 True이면 반대포지션 존재시 자동청산 후 진입, false이면 청산하지 않고 진입 함
             # config에서 포지션 정책 읽기 (기본값: 동일포지션 진입허용, 자동청산 금지)
-            config = load_config()
+            # (수정: 이전엔 여기만 load_config()를 새로 호출해서 self.config를 완전히 무시했다.
+            #  main.py --config로 다른 설정 파일을 지정해도 execute_trade의 판단(이 아래
+            #  allow_same_position, max_position_pct 등)에는 반영되지 않는 문제가 있었다.
+            #  다른 메서드들과 동일하게 _get_config()로 통일.)
+            config = self._get_config()
             allow_same_position = config['trading'].get('allow_same_position', True)
 
             # 1. 반대/동일 포지션 확인 및 config 기반 진입/청산 정책 적용
@@ -592,8 +609,7 @@ class PositionManager:
         - SHORT: SL은 위쪽으로 올림, TP는 아래쪽으로 내림
         - 보정 후에도 방향이 뒤바뀌지 않도록 최소 1틱 간격 보장
         """
-        # config.json에서 설정 로드
-        config = self.config if self.config else load_config(os.path.join(os.path.dirname(__file__), 'config.json'))
+        config = self._get_config()
         
         tick = get_price_tick_size(exchange, symbol)
         sl, tp = sl_price, tp_price
@@ -709,7 +725,7 @@ class PositionManager:
                 "slOrderType": "Market"
             }
 
-            config = self.config if self.config else load_config(os.path.join(os.path.dirname(__file__), 'config.json'))
+            config = self._get_config()
             position_mode = config['trading'].get('position_mode', 'hedge')
             if position_mode == 'hedge':
                 params["positionIdx"] = int(position_idx)

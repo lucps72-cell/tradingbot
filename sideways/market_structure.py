@@ -180,9 +180,6 @@ class MarketStructure:
         return df['low'].shift(shift).rolling(window=window).min()
     
 
-    import pandas as pd
-    import numpy as np
-
     def volume_swing_points(self, df, lookback=3):
         """
         df: DataFrame with 'volume'
