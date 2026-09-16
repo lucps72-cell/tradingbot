@@ -510,7 +510,8 @@ class PositionManager:
 
             time.sleep(4)  # 주문 체결 대기 (시장 상황에 따라 조절 가능)
 
-            # 5. 미체결 주문 처리 (양방향 모두 취소)
+            # 5. 미체결 주문 처리 (방금 낸 진입 주문이 4초 내 미체결이면 취소)
+            #    action='long'/'short'는 cancel_all_side_orders 내부에서 buy/sell로 정규화된다.
             self.cancel_all_side_orders(exchange, symbol, side=action)
 
             cur_pos = self.get_current_position(exchange, symbol, action)
@@ -785,6 +786,11 @@ class PositionManager:
     """
     def cancel_all_side_orders(self, exchange: ccxt.Exchange, symbol: str, side: str) -> bool:
         try:
+            # side는 포지션 방향('long'/'short') 또는 ccxt 주문 방향('buy'/'sell') 둘 다 받아서
+            # 아래 비교(order.get('side'), 즉 항상 'buy'/'sell')와 실제로 매칭되도록 정규화한다.
+            # 예전엔 execute_trade가 'long'/'short'를 그대로 넘겨서 이 비교가 절대 True가 될 수 없었고,
+            # 그 결과 미체결 진입 주문이 취소되지 않고 거래소에 계속 쌓이는 버그가 있었다.
+            order_side = {'long': 'buy', 'short': 'sell'}.get(side, side)
             #logger.info(f"미체결 주문 조회 중: {symbol}")
             open_orders = exchange.fetch_open_orders(symbol)
             if open_orders is None:
@@ -794,7 +800,7 @@ class PositionManager:
                 #active_logger.info(f"미체결 주문 발견: {Colors.BOLD}{order_count}개{Colors.RESET}")
                 for order in open_orders:
                     try:
-                        if order.get('side') == side:
+                        if order.get('side') == order_side:
                             exchange.cancel_order(order['id'], symbol)
                             order_type = order.get('type', 'N/A')
                             order_side = order.get('side', 'N/A')
