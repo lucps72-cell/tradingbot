@@ -58,8 +58,13 @@ def play_voice_alert_signal(message_key1: str, message_key2: str):
 
 
 def send_telegram(message):
-    token = "***REMOVED-TELEGRAM-TOKEN***"
-    chat_id = "***REMOVED-TELEGRAM-CHATID***"
+    """TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID는 sideways/.env에서 로드 (main.py가 시작 시 load_dotenv).
+    두 값이 없으면 조용히 스킵 — 토큰을 코드에 하드코딩하지 않는다."""
+    token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if not token or not chat_id:
+        print("[텔레그램 전송 스킵] TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID가 .env에 설정되지 않음")
+        return
     url = f'https://api.telegram.org/bot{token}/sendMessage'
     data = {'chat_id': chat_id, 'text': message}
     try:
