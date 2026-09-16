@@ -6,7 +6,6 @@ from sideways.common import play_voice_alert, play_voice_alert_signal, send_tele
 from sideways.market_structure import MarketStructure
 from sideways.validation import validate_data
 from sideways.position_manager import PositionManager
-from sideways.risk_manager import RiskManager
 from sideways.trade_recorder import TradeRecorder
 from datetime import datetime, time
 
@@ -29,7 +28,8 @@ class SidewaysStrategy:
         self.rsi_overbought = rsi_overbought
         self.rsi_oversold = rsi_oversold
         self.position_manager = PositionManager(exchange, symbol, config)
-        self.risk_manager = RiskManager()
+        # (정리: RiskManager는 생성만 되고 check_risk()가 어디서도 호출되지 않는 죽은 코드였다.
+        #  실제 SL/TP·트레일링 로직은 전부 PositionManager에 있다. risk_manager.py는 삭제.)
         self.current_price = None
 
     def execute_trading(self, current_trend, verbose: bool = False):

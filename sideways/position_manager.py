@@ -495,8 +495,11 @@ class PositionManager:
                 active_logger.info(f"주문수량 유효하지 않음")
                 return False
             
-            # 3-3. 잔고 기반 최대 주문 비중 조절 (예: 10%로 제한)
-            effective_notional = self.get_adjusted_trade_amount(exchange, float(usdt_amount), leverage, max_position_pct=0.16)
+            # 3-3. 잔고 기반 최대 주문 비중 조절
+            # (수정: 이전엔 0.16이 여기 리터럴로 박혀있어서 config.json의 max_position_pct를
+            #  바꿔도 실제로는 반영되지 않았다 — 이제 config에서 읽는다.)
+            max_position_pct = config['trading'].get('max_position_pct', 0.16)
+            effective_notional = self.get_adjusted_trade_amount(exchange, float(usdt_amount), leverage, max_position_pct=max_position_pct)
             if effective_notional <= 0:
                 active_logger.info("잔고 기반 최대 주문 비중으로 인해 주문 금액이 0 이하로 조정되어 진입을 스킵합니다.")
                 return False
@@ -592,7 +595,7 @@ class PositionManager:
         # config.json에서 설정 로드
         config = self.config if self.config else load_config(os.path.join(os.path.dirname(__file__), 'config.json'))
         
-        tick = get_price_tick_size(symbol)
+        tick = get_price_tick_size(exchange, symbol)
         sl, tp = sl_price, tp_price
 
         # ATR 기반 최소 거리 설정 (config에서 읽어오기)
@@ -1306,25 +1309,43 @@ def generate_entry_order(direction, df, entry_trigger_df, config, current_price=
     return entry_order
 
 
-def get_price_tick_size(symbol: str) -> Optional[float]:
+def get_price_tick_size(exchange: ccxt.Exchange, symbol: str) -> Optional[float]:
     """
-    심볼의 가격 틱 사이즈 조회 (Bybit instruments info 사용)
+    심볼의 가격 틱 사이즈 조회.
+    (수정: 이전엔 독스트링만 "Bybit instruments info 사용"이라 적혀있고 실제로는
+     3개 심볼(XRP/BTC/ETH)만 하드코딩된 표를 쓰고 나머지는 전부 0.0001로 처리했다.
+     그래서 다른 심볼로 바꾸면 SL/TP 가격이 잘못 반올림될 수 있었다.
+     이제 exchange.market(symbol)에서 실제 정밀도를 먼저 조회하고,
+     조회가 안 될 때만 기존 하드코딩 표로 폴백한다.)
     Args:
+        exchange: CCXT 거래소 객체 (실제 시장 정밀도 조회용)
         symbol: 거래 심볼 (예: 'XRPUSDT' 또는 'XRP/USDT:USDT')
     Returns:
         tick_size 또는 None
     """
+    try:
+        market = exchange.market(symbol)
+        tick = market.get('precision', {}).get('price')
+        # Bybit(ccxt)는 precisionMode가 TICK_SIZE라 precision.price가 곧 틱 사이즈 값이다.
+        if tick:
+            return float(tick)
+        min_price = market.get('limits', {}).get('price', {}).get('min')
+        if min_price:
+            return float(min_price)
+    except Exception as e:
+        active_logger.warning(f"[틱 사이즈] 거래소 조회 실패, 폴백 표 사용: {symbol} - {e}")
+
     try:
         market_id = symbol.replace('/', '').split(':')[0]
         tick_size_map = {
             'XRPUSDT': 0.0001,
             'BTCUSDT': 0.1,
             'ETHUSDT': 0.01,
-            # 필요시 추가
+            # 거래소 조회가 실패했을 때만 쓰이는 폴백 — 필요시 추가
         }
         return tick_size_map.get(market_id, 0.0001)
     except Exception as e:
-        logging.info(f"틱 사이즈 조회 실패: {e}")
+        active_logger.warning(f"틱 사이즈 폴백 조회 실패: {e}")
         return None
 
 def get_recent_atr(exchange, symbol: str, timeframe: str = '1m', period: int = 14) -> Optional[float]:
