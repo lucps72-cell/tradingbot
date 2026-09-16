@@ -225,7 +225,10 @@ class SidewaysStrategy:
                 return_position_low = None
                 
             # EMA 정렬 제한
-            if ema_hgh_up and ema_hgh_down and return_position_low == "short":
+            # (수정: ema_hgh_up과 ema_hgh_down은 동일 변수(ema_position_hgh)에서 나온 상호배타 값이라
+            #  둘 다 True인 경우는 존재할 수 없어 이 필터가 항상 무동작이었다.
+            #  231행(하락추세→매수 제한)과 대칭이 되도록 ema_low_up으로 정정.)
+            if ema_hgh_up and ema_low_up and return_position_low == "short":
                 return_position_msg = f"매도 제한(상승추세) | {return_position_msg}"
                 return_position_low = None
             elif ema_hgh_down and ema_low_down and return_position_low == "long":
