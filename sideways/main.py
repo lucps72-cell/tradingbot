@@ -273,10 +273,12 @@ def main():
                     logger.info(f"최근 거래와 반대 포지션 감지. (현재가: {current_price}, 마지막 거래가: {last_trade_price}, 시간 차이: {diff_trades_time})")
                     skipped_count += 1
                 elif (
+                    # 수정: 이전 조건은 "101%↑ AND 99.9%↓"라는 동시에 참일 수 없는 조건이라
+                    # 이 분기가 항상 거짓이었다. 주석(동일포지션이 일정가격 "이상"이면 거래 방지)의
+                    # 의도대로 "밴드 밖(위 또는 아래)으로 벗어났으면"이 되도록 OR로 정정.
                     entry_position == last_trade_position
                     and last_trade_price is not None
-                    and current_price >= last_trade_price * 1.001
-                    and current_price <= last_trade_price * 0.999
+                    and (current_price >= last_trade_price * 1.001 or current_price <= last_trade_price * 0.999)
                     and abs(diff_trades_time.total_seconds()) <= 60
                 ):
                     logger.info(f"최근 거래와 동일 포지션 감지. (현재가: {current_price}, 마지막 거래가: {last_trade_price}, 시간 차이: {diff_trades_time})")
