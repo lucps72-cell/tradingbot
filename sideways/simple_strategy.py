@@ -27,7 +27,9 @@ class SidewaysStrategy:
         self.rsi_period = rsi_period
         self.rsi_overbought = rsi_overbought
         self.rsi_oversold = rsi_oversold
-        self.position_manager = PositionManager(exchange, symbol, config)
+        # (2026-09-17) trade_recorder를 공유해서 PositionManager.close_position()도
+        # 실거래 청산 시 DB에 record_exit()을 남길 수 있도록 한다.
+        self.position_manager = PositionManager(exchange, symbol, config, trade_recorder=trade_recorder)
         # (정리: RiskManager는 생성만 되고 check_risk()가 어디서도 호출되지 않는 죽은 코드였다.
         #  실제 SL/TP·트레일링 로직은 전부 PositionManager에 있다. risk_manager.py는 삭제.)
         self.current_price = None
@@ -435,7 +437,9 @@ class SidewaysStrategy:
                             sl_price=current_sl_price if current_sl_price > 0 else None,
                             signal_reason=f"{action.upper()} 포지션 진입 {entry_count+1}/{split_count}회",
                             leverage=int(leverage),
-                            entry_split_count=split_count
+                            entry_split_count=split_count,
+                            # (2026-09-17 추가) read_only_mode=True(시뮬레이션)로 생성된 기록인지 구분.
+                            is_simulated=self.config['trading'].get('read_only_mode', False)
                         )
                         requested_symbol = self.symbol.replace('/', '').split(':')[0]
                         active_logger.info(f"[DEBUG] 거래 기록 DB저장 완료: {requested_symbol} {action.upper()} 진입 {entry_count+1}/{split_count}회, 진입가: {current_entry_price}, 진입수량: {current_entry_qty:.4f}, 손절가: {current_sl_price:.4f}, 익절가: {current_tp_price:.4f}")

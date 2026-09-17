@@ -14,9 +14,12 @@ trade_logger = logging.getLogger("trade")
 
 class PositionManager:
     """포지션 관리 클래스."""
-    def __init__(self, exchange=None, symbol=None, config=None):
+    def __init__(self, exchange=None, symbol=None, config=None, trade_recorder=None):
         self.position = {'long': None, 'short': None}
         self.config = config
+        # (2026-09-17 추가) 실거래 청산 시 DB에 record_exit()을 남기기 위해 전달받는다.
+        # SidewaysStrategy가 생성한 TradeRecorder를 그대로 넘겨받아 공유한다(None이면 기록 생략).
+        self.trade_recorder = trade_recorder
         if exchange is not None and symbol is not None:
             self.fetch_and_set_position(exchange, symbol)
 
@@ -161,6 +164,32 @@ class PositionManager:
                         params['positionIdx'] = 1 if s == 'long' else 2
                     order = exchange.create_market_order(symbol, close_side, close_amount, params=params)
                     active_logger.info(f"[청산성공] {s.upper()} 시장가 청산 완료: {close_amount} {symbol}, 주문 ID: {order.get('id')}")
+
+                    # (2026-09-17 추가) 실거래 청산 기록을 DB에 남긴다.
+                    # 기존엔 record_exit()이 코드베이스 어디에서도 호출되지 않아
+                    # 청산 정보가 DB에 전혀 저장되지 않던 문제가 있었다(진입만 기록되고 청산은 누락).
+                    if self.trade_recorder:
+                        try:
+                            exit_price = order.get('average') or order.get('price')
+                            if not exit_price:
+                                # 시장가 주문 직후엔 체결 평균가가 비어있는 경우가 있어 현재가로 대체한다.
+                                exit_price = self.get_current_price(exchange, symbol)
+                            entry_price = pos.get('entry_price')
+                            if exit_price and entry_price:
+                                # 원 진입 시 마진(entry_usdt)은 포지션 상태에 저장돼 있지 않아
+                                # entry_price * 수량으로 근사한다(레버리지 반영 전 명목가치 근사치).
+                                self.trade_recorder.record_exit(
+                                    symbol=symbol,
+                                    side=s,
+                                    exit_price=float(exit_price),
+                                    quantity=close_amount,
+                                    entry_price=float(entry_price),
+                                    entry_usdt=float(entry_price) * close_amount,
+                                    exit_reason="포지션 청산 (close_position)"
+                                )
+                        except Exception as rec_err:
+                            active_logger.error(f"[청산기록실패] {s.upper()} 거래 기록 DB 저장 중 오류: {rec_err}")
+
                     self.position[s] = None
                 except Exception as e:
                     active_logger.error(f"[청산실패] {s.upper()} 시장가 청산 실패: {e}")

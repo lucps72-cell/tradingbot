@@ -71,10 +71,12 @@ class SQLiteDatabase(TradeDatabase):
             self.cursor = self.conn.cursor()
             
             # trades 테이블 생성
-            self.cursor.execute("SHOW TABLES LIKE 'trades'")
-            if not self.cursor.fetchone():
-                self.cursor.execute('''
-                CREATE TABLE trades (
+            # (수정: 이전엔 "SHOW TABLES LIKE 'trades'"라는 MySQL 전용 구문을 SQLite에 썼다.
+            #  SQLite는 이 구문을 모르므로 매번 예외가 나서 아래 initialize() 전체가 실패했고,
+            #  (신규 SQLite DB라면) trades 테이블이 한 번도 새로 생성되지 못했다.
+            #  trade_details와 동일하게 CREATE TABLE IF NOT EXISTS로 정리.)
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS trades (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp TEXT NOT NULL,
                     symbol TEXT NOT NULL,
@@ -94,11 +96,22 @@ class SQLiteDatabase(TradeDatabase):
                     order_type TEXT,
                     leverage INTEGER,
                     entry_split_count INTEGER,
+                    is_simulated INTEGER NOT NULL DEFAULT 0,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
                 )
             ''')
-            
+
+            # 기존에 이미 만들어진 trades 테이블에는 is_simulated 컬럼이 없을 수 있으므로
+            # (2026-09-17 신규 추가 컬럼) 없으면 추가하는 간단한 마이그레이션.
+            self.cursor.execute("PRAGMA table_info(trades)")
+            existing_cols = {row[1] for row in self.cursor.fetchall()}
+            if 'is_simulated' not in existing_cols:
+                self.cursor.execute(
+                    "ALTER TABLE trades ADD COLUMN is_simulated INTEGER NOT NULL DEFAULT 0"
+                )
+                active_logger.info("SQLite trades 테이블에 is_simulated 컬럼 추가(마이그레이션)")
+
             # trade_details 테이블 (세부 거래 기록)
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS trade_details (
@@ -110,12 +123,13 @@ class SQLiteDatabase(TradeDatabase):
                     FOREIGN KEY(trade_id) REFERENCES trades(id)
                 )
             ''')
-            
+
             # 인덱스 생성
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_trades_symbol ON trades(symbol)')
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_trades_timestamp ON trades(timestamp)')
             self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_trades_side ON trades(side)')
-            
+            self.cursor.execute('CREATE INDEX IF NOT EXISTS idx_trades_is_simulated ON trades(is_simulated)')
+
             self.conn.commit()
             active_logger.info(f"SQLite 데이터베이스 초기화 완료: {self.db_path}")
             return True
@@ -145,20 +159,23 @@ class SQLiteDatabase(TradeDatabase):
                 'order_type': trade_data.get('order_type', 'market'),
                 'leverage': trade_data.get('leverage', 1),
                 'entry_split_count': trade_data.get('entry_split_count', 1),
+                # (2026-09-17 추가) read_only_mode(시뮬레이션)로 생성된 기록인지 구분.
+                # trade_data에 값이 없으면 과거 호출부와의 호환을 위해 기본값 0(실거래)로 둔다.
+                'is_simulated': 1 if trade_data.get('is_simulated') else 0,
             }
-            
+
             # timestamp 설정
             timestamp = trade_data.get('timestamp', datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
             entry_time = trade_data.get('entry_time')
             exit_time = trade_data.get('exit_time')
-            
+
             self.cursor.execute('''
                 INSERT INTO trades (
                     timestamp, symbol, side, entry_price, exit_price, quantity,
                     entry_usdt, entry_time, exit_time, tp_price, sl_price,
                     pnl, pnl_pct, status, signal_reason, order_type, leverage,
-                    entry_split_count, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    entry_split_count, is_simulated, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ''', (
                 timestamp, required_fields['symbol'], required_fields['side'],
                 required_fields['entry_price'], required_fields['exit_price'],
@@ -168,7 +185,7 @@ class SQLiteDatabase(TradeDatabase):
                 required_fields['pnl_pct'], required_fields['status'],
                 required_fields['signal_reason'], required_fields['order_type'],
                 required_fields['leverage'], required_fields['entry_split_count'],
-                now, now
+                required_fields['is_simulated'], now, now
             ))
             
             self.conn.commit()
@@ -374,14 +391,30 @@ class MySQLDatabase(TradeDatabase):
                     order_type VARCHAR(20),
                     leverage INT,
                     entry_split_count INT,
+                    is_simulated TINYINT(1) NOT NULL DEFAULT 0,
                     created_at DATETIME NOT NULL,
                     updated_at DATETIME NOT NULL,
                     INDEX idx_symbol (symbol),
                     INDEX idx_timestamp (timestamp),
-                    INDEX idx_side (side)
+                    INDEX idx_side (side),
+                    INDEX idx_is_simulated (is_simulated)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
                 ''')
-            
+            else:
+                # 기존에 이미 만들어진 trades 테이블에는 is_simulated 컬럼이 없을 수 있으므로
+                # (2026-09-17 신규 추가 컬럼) 없으면 추가하는 간단한 마이그레이션.
+                self.cursor.execute('''
+                    SELECT COUNT(*) AS cnt FROM information_schema.columns
+                    WHERE table_schema = %s AND table_name = 'trades' AND column_name = 'is_simulated'
+                ''', (self.database,))
+                has_col = self.cursor.fetchone()
+                if not has_col or not has_col.get('cnt'):
+                    self.cursor.execute(
+                        "ALTER TABLE trades ADD COLUMN is_simulated TINYINT(1) NOT NULL DEFAULT 0, "
+                        "ADD INDEX idx_is_simulated (is_simulated)"
+                    )
+                    print("[MySQL] trades 테이블에 is_simulated 컬럼 추가(마이그레이션)")
+
             # trade_details 테이블 생성
             self.cursor.execute("SHOW TABLES LIKE 'trade_details'")
             if not self.cursor.fetchone():
@@ -432,28 +465,30 @@ class MySQLDatabase(TradeDatabase):
                 'order_type': trade_data.get('order_type', 'market'),
                 'leverage': trade_data.get('leverage', 1),
                 'entry_split_count': trade_data.get('entry_split_count', 1),
+                # (2026-09-17 추가) read_only_mode(시뮬레이션)로 생성된 기록인지 구분.
+                'is_simulated': 1 if trade_data.get('is_simulated') else 0,
             }
-            
+
             # timestamp 설정
             timestamp = trade_data.get('timestamp', now)
             if isinstance(timestamp, str):
                 timestamp = datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S')
-            
+
             entry_time = trade_data.get('entry_time')
             if isinstance(entry_time, str):
                 entry_time = datetime.strptime(entry_time, '%Y-%m-%d %H:%M:%S') if entry_time else None
-            
+
             exit_time = trade_data.get('exit_time')
             if isinstance(exit_time, str):
                 exit_time = datetime.strptime(exit_time, '%Y-%m-%d %H:%M:%S') if exit_time else None
-            
+
             self.cursor.execute('''
                 INSERT INTO trades (
                     timestamp, symbol, side, entry_price, exit_price, quantity,
                     entry_usdt, entry_time, exit_time, tp_price, sl_price,
                     pnl, pnl_pct, status, signal_reason, order_type, leverage,
-                    entry_split_count, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    entry_split_count, is_simulated, created_at, updated_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 timestamp, required_fields['symbol'], required_fields['side'],
                 required_fields['entry_price'], required_fields['exit_price'],
@@ -463,7 +498,7 @@ class MySQLDatabase(TradeDatabase):
                 required_fields['pnl_pct'], required_fields['status'],
                 required_fields['signal_reason'], required_fields['order_type'],
                 required_fields['leverage'], required_fields['entry_split_count'],
-                now, now
+                required_fields['is_simulated'], now, now
             ))
             
             self.conn.commit()

@@ -50,10 +50,11 @@ class TradeRecorder:
                      sl_price: Optional[float] = None,
                      signal_reason: str = "",
                      leverage: int = 1,
-                     entry_split_count: int = 1) -> bool:
+                     entry_split_count: int = 1,
+                     is_simulated: bool = False) -> bool:
         """
         거래 진입 기록
-        
+
         Args:
             symbol: 거래 심볼
             side: 포지션 방향 (long/short)
@@ -65,13 +66,15 @@ class TradeRecorder:
             signal_reason: 신호 이유
             leverage: 레버리지
             entry_split_count: 진입 분할 횟수
-            
+            is_simulated: read_only_mode(시뮬레이션)로 생성된 기록이면 True.
+                호출부(simple_strategy.py)에서 config['trading']['read_only_mode']를 그대로 전달.
+
         Returns:
             저장 성공 여부
         """
         if not self.db_enabled or not self.db:
             return False
-        
+
         try:
             trade_data = {
                 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
@@ -88,6 +91,7 @@ class TradeRecorder:
                 'order_type': 'market',
                 'leverage': leverage,
                 'entry_split_count': entry_split_count,
+                'is_simulated': bool(is_simulated),
             }
             
             return self.db.save_trade(trade_data)
