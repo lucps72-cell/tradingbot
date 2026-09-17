@@ -757,6 +757,60 @@ class PositionManager:
             active_logger.warning(f"잔고 조회 중 오류: {e}, 입력값 그대로 사용")
             return float(requested_amount)
 
+    def calculate_risk_based_order_amount(self, exchange, leverage: float, sl_ratio: float, risk_per_trade_pct: float) -> float:
+        """
+        (2026-09-18 신규, J 레버리지·SL 조합 튜닝 — 사용자 지시) 계좌잔고 대비 목표 리스크
+        비율(risk_per_trade_pct)을 기준으로 이번 진입에 쓸 증거금(USDT)을 역산한다.
+
+        사용자 요청 요지: "레버리지 기본값은 그대로 두고, 변경되면 매번 자동계산해 포지션
+        사이즈를 증거금 기준으로" — 즉 레버리지·SL폭 자체는 손대지 않고, "SL에 맞았을 때
+        잃는 금액이 잔고의 X%를 넘지 않도록" 증거금(포지션 사이즈) 쪽을 매번 동적으로
+        계산하는 방식. (기존 config.json의 고정 order_amount_usdt를 대체)
+
+        SL 1회 히트 시 손실액(USDT) = 증거금 × leverage × sl_ratio 이므로,
+        목표 손실액(= 잔고 × risk_per_trade_pct)을 넘지 않는 증거금은:
+            증거금 = (잔고 × risk_per_trade_pct) ÷ (leverage × sl_ratio)
+
+        Args:
+            exchange: CCXT 거래소 객체
+            leverage: 이번 진입에 적용되는 레버리지
+            sl_ratio: 이번 진입의 실제 SL 거리 비율(0~1, 가격 기준) — config 기본값이 아니라
+                호출부가 analysis의 entry_price/sl_price로 직접 계산해서 넘겨야 한다
+                (ATR 기반 최소거리 보정 등으로 실제 폭이 config와 다를 수 있기 때문).
+            risk_per_trade_pct: 잔고 대비 목표 손실 비율(0~1). 예: 0.002 = 0.2%
+        Returns:
+            계산된 증거금(USDT). 계산 불가(잔고 조회 실패, leverage/sl_ratio/risk_per_trade_pct가
+            0 이하 등) 시 0.0 — 호출부는 0.0을 "리스크 기반 계산 실패"로 보고 config 고정값으로
+            폴백해야 한다.
+        """
+        try:
+            leverage = float(leverage)
+            sl_ratio = float(sl_ratio)
+            risk_per_trade_pct = float(risk_per_trade_pct)
+            if leverage <= 0 or sl_ratio <= 0 or risk_per_trade_pct <= 0:
+                active_logger.warning(
+                    f"리스크 기반 사이징 계산 불가(leverage={leverage}, sl_ratio={sl_ratio}, "
+                    f"risk_per_trade_pct={risk_per_trade_pct}) — 0 이하 값 존재"
+                )
+                return 0.0
+
+            balance = exchange.fetch_balance()
+            usdt_available = balance.get('USDT', {}).get('free', None)
+            if usdt_available is None or float(usdt_available) <= 0:
+                active_logger.warning(f"리스크 기반 사이징: USDT 잔고 조회 실패 또는 0 이하: {usdt_available}")
+                return 0.0
+
+            target_risk_usdt = float(usdt_available) * risk_per_trade_pct
+            margin = target_risk_usdt / (leverage * sl_ratio)
+            active_logger.debug(
+                f"[리스크기반 사이징] 잔고={usdt_available:.2f} USDT, 목표손실={target_risk_usdt:.4f} USDT "
+                f"→ 증거금={margin:.4f} USDT (leverage={leverage}x, sl_ratio={sl_ratio*100:.3f}%)"
+            )
+            return margin
+        except Exception as e:
+            active_logger.warning(f"리스크 기반 사이징 계산 중 오류: {e}")
+            return 0.0
+
     def refine_sl_tp_prices(self,
         exchange: ccxt.Exchange,
         symbol: str,

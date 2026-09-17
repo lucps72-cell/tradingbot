@@ -35,6 +35,10 @@
   },
   "risk_management": {
     "_comment_risk_management": "리스크 관리 설정 (SL/TP, 트레일링, 손실제한 등)",
+    "use_risk_based_sizing": true,
+    "_comment_use_risk_based_sizing": "2026-09-18 신규: true면 order_amount_usdt(고정값) 대신, 계좌잔고 × risk_per_trade_pct ÷ (leverage × 실제SL거리)로 증거금을 매번 자동계산",
+    "risk_per_trade_pct": 0.002,
+    "_comment_risk_per_trade_pct": "SL 1회 히트 시 허용할 최대 손실 = 계좌잔고의 0.2% (사용자 지정)",
     "sl_ratio": 0.005,
     "tp_ratio": 0.03,
     "tp_mode": "hybrid",

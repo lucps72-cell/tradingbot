@@ -356,6 +356,12 @@ class SidewaysStrategy:
             amount_mode = self.config['trading'].get('amount_mode', 'margin')
             order_amount_usdt = float(self.config['trading']['order_amount_usdt'])
 
+            # 진입가/손절가/익절가 — 리스크 기반 사이징(아래)에서 실제 SL 거리 계산에 필요해서
+            # 분할 진입 금액 계산보다 먼저 끌어올렸다(기존엔 진입 수량 계산 직전에 있었음).
+            current_entry_price = float(analysis['entry_price'])
+            current_sl_price = float(analysis['sl_price']) if 'sl_price' in analysis else 0.0
+            current_tp_price = float(analysis['tp_price']) if 'tp_price' in analysis else 0.0
+
             # 분할 진입 금액 계산 (레버리지 반영)
             if action == 'long':
                 leverage = self.position_manager.get_leverage(self.exchange, self.symbol, 'long')
@@ -364,6 +370,30 @@ class SidewaysStrategy:
             if leverage == 0 or leverage == None:
                 self.position_manager.set_leverage(self.exchange, self.symbol, configured_leverage, action)
                 leverage = configured_leverage
+
+            # (2026-09-18 신규, 사용자 지시 — J 레버리지·SL 조합 튜닝) 리스크 기반 포지션 사이징.
+            # "레버리지 기본값은 그대로 두고, 포지션 사이즈(증거금)를 계좌잔고 대비 목표 리스크
+            # 비율로 자동계산"하도록 config.json의 고정 order_amount_usdt 대신, "SL에 맞았을 때
+            # 잃는 금액이 잔고의 risk_per_trade_pct를 넘지 않도록" 증거금을 역산한다.
+            # 공식: 증거금 = (잔고 × risk_per_trade_pct) ÷ (leverage × 실제SL거리비율)
+            # 실제 SL거리비율은 config의 sl_ratio 값이 아니라 analysis(entry_price/sl_price)로
+            # 직접 계산한다 — generate_entry_order()가 ATR 기반 최소거리 보정을 적용할 수 있어
+            # 실제 적용된 SL 폭이 config 기본값과 다를 수 있기 때문.
+            risk_cfg = self.config.get('risk_management', {})
+            if risk_cfg.get('use_risk_based_sizing', False) and current_sl_price > 0:
+                actual_sl_ratio = abs(current_entry_price - current_sl_price) / current_entry_price
+                risk_pct = risk_cfg.get('risk_per_trade_pct', 0.01)
+                risk_based_amount = self.position_manager.calculate_risk_based_order_amount(
+                    self.exchange, leverage=leverage, sl_ratio=actual_sl_ratio, risk_per_trade_pct=risk_pct
+                )
+                if risk_based_amount > 0:
+                    active_logger.info(
+                        f"[리스크기반 사이징] 잔고×{risk_pct*100:.3f}% ÷ (레버리지{leverage}x × SL거리{actual_sl_ratio*100:.3f}%) "
+                        f"= 증거금 {risk_based_amount:.4f} USDT (config 고정값 {order_amount_usdt} USDT 대체)"
+                    )
+                    order_amount_usdt = risk_based_amount
+                else:
+                    active_logger.warning("리스크 기반 사이징 계산 실패(잔고 조회 등) — config 고정값(order_amount_usdt)으로 대체")
 
             if amount_mode == 'margin':
                 split_amount = (order_amount_usdt * leverage) / split_count
@@ -379,10 +409,7 @@ class SidewaysStrategy:
             entry_count = int(total_entry_amount // split_amount)
             #active_logger.info(f"[DEBUG] split_amount={split_amount}, total_entry_amount={total_entry_amount}, entry_count={entry_count}")
 
-            # 현재 진입 수량 및 금액 계산 (이번 진입)
-            current_entry_price = float(analysis['entry_price'])
-            current_sl_price = float(analysis['sl_price']) if 'sl_price' in analysis else 0.0
-            current_tp_price = float(analysis['tp_price']) if 'tp_price' in analysis else 0.0
+            # 현재 진입 수량 계산 (이번 진입) — 진입가/SL/TP는 위에서 이미 추출함
             current_entry_qty = split_amount / current_entry_price
             total_amount = total_entry_amount
 
