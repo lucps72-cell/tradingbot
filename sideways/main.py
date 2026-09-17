@@ -295,17 +295,29 @@ def main():
                             requested_symbol = symbol.replace('/', '').split(':')[0]
                             send_telegram(f"{requested_symbol} {entry_position} 신호: {current_price} ")
 
-                        if True: #config['trading'].get('read_only_mode', False) is False: 
-                            # 거래실행 함수 호출 (양방향 포지션 구조 대응)
-                            rtn_success_count, rtn_skipped_count = strategy.execute_transaction(entry_position, close_position)
-                            success_count += rtn_success_count
-                            skipped_count += rtn_skipped_count
-                            if rtn_success_count > 0:
-                                last_trade_position = entry_position
-                                last_trade_price = current_price
-                                last_trades_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        else:
-                            # true인 경우 진입/청산 시뮬레이션 모드로 실행 (실제 주문은 실행하지 않음)
+                        # (2026-09-17 정리, Finding G) 이전엔 여기가 "if True: #read_only_mode...
+                        # is False:"라는 죽은 분기였다 — 조건이 상수라 read_only_mode와 무관하게
+                        # 항상 execute_transaction()이 호출됐지만, 실제 주문 실행 여부는
+                        # execute_transaction() 내부(execute_trade 호출 직전)에서 이미
+                        # read_only_mode를 정확히 재검사하고 있어서 위험하지는 않았다.
+                        # 바깥 조건을 실제 read_only_mode 체크로 "풀되", execute_transaction()
+                        # 자체는 모드와 무관하게 항상 호출해야 한다 — 그 안에서
+                        # record_entry()(거래 기록 DB 저장)와 update_simulated_position()
+                        # (2026-09-17 신규 페이퍼 트레이딩 가상 포지션 추적)가 실행되기 때문에,
+                        # 여기서 호출을 건너뛰면 시뮬레이션 모드의 진입 기록·가상 포지션 추적이
+                        # 전부 멈춰버린다(실제 발견한 회귀 위험 — 반영 전 확인함).
+                        rtn_success_count, rtn_skipped_count = strategy.execute_transaction(entry_position, close_position)
+                        success_count += rtn_success_count
+                        skipped_count += rtn_skipped_count
+                        if rtn_success_count > 0:
+                            last_trade_position = entry_position
+                            last_trade_price = current_price
+                            last_trades_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                        elif config['trading'].get('read_only_mode', False):
+                            # 시뮬레이션 모드에서는 rtn_success_count가 항상 0이다(성공 카운트는
+                            # execute_transaction() 내부의 "read_only_mode is False" 블록에서만
+                            # 증가함). 그래도 반복 진입 방지 로직(위쪽 entry_position ==
+                            # last_trade_position 비교)이 동작하도록 여기서 직접 갱신해 준다.
                             last_trade_position = entry_position
                             last_trade_price = current_price
                             last_trades_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
