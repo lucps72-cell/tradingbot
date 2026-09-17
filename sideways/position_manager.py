@@ -646,7 +646,15 @@ class PositionManager:
             # (수정: 이전엔 0.16이 여기 리터럴로 박혀있어서 config.json의 max_position_pct를
             #  바꿔도 실제로는 반영되지 않았다 — 이제 config에서 읽는다.)
             max_position_pct = config['trading'].get('max_position_pct', 0.16)
-            effective_notional = self.get_adjusted_trade_amount(exchange, float(usdt_amount), leverage, max_position_pct=max_position_pct)
+            # (2026-09-17 추가 발견·수정) usdt_amount라는 이름과 달리 이 값은 실제로는
+            # "코인 수량"이다(호출부 simple_strategy.py에서 split_amount/entry_price로
+            # 계산한 값을 그대로 넘김). get_adjusted_trade_amount()의 잔고 기반 상한
+            # (max_trade_amount = 잔고 × max_position_pct × leverage)은 USDT 단위로
+            # 계산되는데, 이걸 코인 수량과 그대로 비교하고 있었다 — 단위가 안 맞아서
+            # (코인 수량 값이 USDT 상한보다 항상 훨씬 작으므로) 이 안전장치가 사실상
+            # 한 번도 작동하지 않는 죽은 코드였다. entry_price를 함께 넘겨 내부에서
+            # 코인 수량 ↔ USDT notional 변환을 정확히 하도록 수정.
+            effective_notional = self.get_adjusted_trade_amount(exchange, float(usdt_amount), leverage, entry_price=float(entry_price), max_position_pct=max_position_pct)
             if effective_notional <= 0:
                 active_logger.info("잔고 기반 최대 주문 비중으로 인해 주문 금액이 0 이하로 조정되어 진입을 스킵합니다.")
                 return False
@@ -695,30 +703,56 @@ class PositionManager:
             active_logger.error(f"거래 실행 실패: {str(e)}")
             return False
 
-    def get_adjusted_trade_amount(self, exchange, requested_amount: float, leverage: float, max_position_pct: float = 1.0) -> float:
+    def get_adjusted_trade_amount(self, exchange, requested_amount: float, leverage: float, entry_price: float, max_position_pct: float = 1.0) -> float:
         """
-        잔고를 조회하여 최대 주문 비중에 맞게 주문 금액을 조절합니다.
+        잔고를 조회하여 최대 주문 비중에 맞게 주문 수량을 조절합니다.
+
+        (2026-09-17 발견·수정) `requested_amount`는 이름과 달리 실제로는 "코인 수량"이다
+        (call site가 `split_amount / entry_price`로 계산한 값을 그대로 넘긴다). 반면
+        `max_trade_amount = 잔고 × max_position_pct × leverage`는 USDT 단위다. 이전엔 이
+        둘을 단위 변환 없이 그대로 비교해서, 코인 수량(보통 소수점 이하의 작은 값)이
+        USDT 기준 상한(보통 수백~수천)보다 항상 작아 **이 안전장치가 사실상 한 번도
+        작동하지 않았다.** entry_price를 받아 코인 수량 ↔ USDT notional로 정확히
+        변환하도록 수정.
+
         Args:
             exchange: CCXT 거래소 객체
-            requested_amount: 요청한 주문 금액(USDT)
-            max_position_pct: 최대 주문 비중(0~1)
+            requested_amount: 요청한 주문 수량(코인 단위, 예: ETH)
+            leverage: 레버리지
+            entry_price: 진입가 (수량 ↔ USDT notional 변환용)
+            max_position_pct: 최대 주문 비중(0~1) — 잔고 대비, 레버리지 반영 전 기준
         Returns:
-            조정된 주문 금액(USDT)
+            조정된 주문 수량(코인 단위) — requested_amount와 동일한 단위로 반환
         """
         try:
+            requested_amount = float(requested_amount)
+            entry_price = float(entry_price)
+            if entry_price <= 0:
+                active_logger.warning("entry_price가 유효하지 않아 잔고 기반 비중 조절을 건너뜁니다.")
+                return requested_amount
+
+            requested_notional = requested_amount * entry_price  # 코인 수량 → USDT notional
+
             balance = exchange.fetch_balance()
             usdt_available = balance.get('USDT', {}).get('free', None)
             if usdt_available is None:
-                active_logger.warning("USDT 잔고 조회 실패, 입력값 그대로 사용")
-                usdt_available = float(requested_amount)
-            
-            max_trade_amount = float(usdt_available) * float(max_position_pct) * float(leverage)
-            if max_trade_amount <= 0:
+                # (수정: 예전엔 여기서 requested_amount를 "USDT 잔고"인 것처럼 재사용했다 —
+                #  코인 수량 값을 USDT로 오인하는 또 다른 단위 혼동이었다. 잔고를 모르면
+                #  상한을 판단할 근거가 없으므로, 비중 제한 없이 요청값을 그대로 통과시킨다.)
+                active_logger.warning("USDT 잔고 조회 실패, 잔고 기반 비중 제한 없이 요청 수량 그대로 사용")
+                return requested_amount
+
+            max_trade_notional = float(usdt_available) * float(max_position_pct) * float(leverage)
+            if max_trade_notional <= 0:
                 active_logger.info(f"사용 가능한 USDT 잔고가 부족합니다: {usdt_available}")
                 return 0.0
-            if float(requested_amount) > max_trade_amount:
-                active_logger.info(f"주문 금액이 최대 비중({max_position_pct*100:.1f}%)을 초과하여 조정: {requested_amount} → {max_trade_amount}")
-            return min(float(requested_amount), max_trade_amount)
+            if requested_notional > max_trade_notional:
+                active_logger.info(
+                    f"주문 금액이 최대 비중({max_position_pct*100:.1f}%)을 초과하여 조정: "
+                    f"{requested_notional:.2f} USDT → {max_trade_notional:.2f} USDT"
+                )
+            capped_notional = min(requested_notional, max_trade_notional)
+            return capped_notional / entry_price  # USDT notional → 코인 수량으로 환원
         except Exception as e:
             active_logger.warning(f"잔고 조회 중 오류: {e}, 입력값 그대로 사용")
             return float(requested_amount)
