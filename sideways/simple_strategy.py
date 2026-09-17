@@ -425,6 +425,18 @@ class SidewaysStrategy:
                             active_logger.info(f"{Colors.BLUE}✓ {action.upper()} 포지션 진입 {entry_count+1}/{split_count}회 완료!! (총액: {total_amount+split_amount:.2f} USDT) " \
                                             f"| 진입가: {current_entry_price}, 진입수량: {current_entry_qty:.4f}, 손절가: {analysis['sl_price']:.4f}, 익절가: {analysis.get('tp_price'):.4f}{Colors.END}")                        
 
+                    # (2026-09-17 신규) read_only_mode(시뮬레이션)일 때 가상 포지션 상태를 추적한다.
+                    # 이후 PositionManager.simulate_position_monitor()가 이 가상 포지션의
+                    # SL/TP/트레일링을 주기적으로 평가해서 조건 충족 시 가상 청산(record_exit)을 만든다.
+                    if self.config['trading'].get('read_only_mode', False):
+                        self.position_manager.update_simulated_position(
+                            side=action,
+                            entry_price=current_entry_price,
+                            qty=current_entry_qty,
+                            sl_price=current_sl_price if current_sl_price > 0 else None,
+                            tp_price=current_tp_price if current_tp_price > 0 else None,
+                        )
+
                     # 거래 기록 Database저장
                     if self.trade_recorder:
                         self.trade_recorder.record_entry(

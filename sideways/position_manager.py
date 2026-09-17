@@ -16,6 +16,11 @@ class PositionManager:
     """포지션 관리 클래스."""
     def __init__(self, exchange=None, symbol=None, config=None, trade_recorder=None):
         self.position = {'long': None, 'short': None}
+        # (2026-09-17 추가) read_only_mode(시뮬레이션/페이퍼 트레이딩)용 가상 포지션 상태.
+        # self.position은 fetch_and_set_position()으로 "거래소 실제 포지션"만 채워지므로,
+        # 시뮬레이션 진입은 여기에 별도로 누적·추적한다. 구조는 self.position과 동일
+        # ({'side','entry_price','size','sl_price','tp_price'}) 하지만 완전히 독립적이다.
+        self.sim_position = {'long': None, 'short': None}
         self.config = config
         # (2026-09-17 추가) 실거래 청산 시 DB에 record_exit()을 남기기 위해 전달받는다.
         # SidewaysStrategy가 생성한 TradeRecorder를 그대로 넘겨받아 공유한다(None이면 기록 생략).
@@ -471,6 +476,102 @@ class PositionManager:
                     active_logger.info(f"{Colors.YELLOW}⚪ 트레일링 스탑 : 청산 | 포지션: {side} | 현재가: {current_price} | 청산가: {new_sl}{Colors.RESET}")
                     trade_logger.info(f"{Colors.YELLOW}⚪ 트레일링 스탑 : 청산 | 포지션: {side} | 현재가: {current_price} | 청산가: {new_sl}{Colors.RESET}")
                     self.close_position(exchange, symbol, side=side, amount=None)
+
+    def update_simulated_position(self, side, entry_price, qty, sl_price=None, tp_price=None):
+        """
+        (2026-09-17 신규) read_only_mode=True(시뮬레이션) 진입을 가상 포지션 상태로 누적한다.
+        분할 진입(entry_split_count>1) 시 실거래 포지션과 동일하게 가중평균 단가로 합산한다.
+        실제 거래소 주문은 발생하지 않는다 — 순수 상태 추적용.
+        """
+        existing = self.sim_position.get(side)
+        if existing and existing.get('size', 0) > 0:
+            old_size = existing['size']
+            old_entry = existing['entry_price']
+            new_size = old_size + qty
+            new_entry = ((old_entry * old_size) + (entry_price * qty)) / new_size if new_size > 0 else entry_price
+            existing['size'] = new_size
+            existing['entry_price'] = new_entry
+            # SL/TP는 최신 진입 신호 값으로 갱신(제공된 경우에만)
+            if sl_price is not None:
+                existing['sl_price'] = sl_price
+            if tp_price is not None:
+                existing['tp_price'] = tp_price
+        else:
+            self.sim_position[side] = {
+                'side': side,
+                'entry_price': entry_price,
+                'size': qty,
+                'sl_price': sl_price,
+                'tp_price': tp_price,
+            }
+        active_logger.info(f"[가상진입] {side.upper()} 가상 포지션 갱신: {self.sim_position[side]}")
+
+    def simulate_position_monitor(self, exchange, symbol, config):
+        """
+        (2026-09-17 신규) read_only_mode=True 전용 가상 포지션 모니터링.
+
+        실거래에서는 고정 SL/TP가 거래소에 걸어둔 조건부 주문으로 거래소 쪽에서 체결되고,
+        trailing_stop_monitor()는 "트레일링 스탑을 올려서 조기 청산해야 하는가"만 판단하면
+        됐다(고정 SL/TP 히트 자체를 감지할 필요가 없었음). 하지만 read_only_mode에서는
+        거래소에 아무 주문도 나가지 않으므로, 고정 SL/TP 도달 여부까지 이 메서드가 직접
+        판정해야 한다. 이 메서드는 실제 거래소 주문을 전혀 실행하지 않는다(현재가 조회만 함).
+
+        호출: self.position_manager.simulate_position_monitor(exchange, symbol, config)
+        (trailing_stop_monitor와 상호 배타적으로, read_only_mode 값에 따라 둘 중 하나만 호출할 것)
+        """
+        for side in ['long', 'short']:
+            pos = self.sim_position.get(side)
+            if not pos or pos.get('size', 0) <= 0:
+                continue
+
+            current_price = self.get_current_price(exchange, symbol)
+            if current_price is None:
+                continue
+
+            entry_price = pos['entry_price']
+            fixed_sl = pos.get('sl_price')
+            fixed_tp = pos.get('tp_price')
+
+            # 1) 고정 SL/TP 도달 체크 (실거래라면 거래소 조건부 주문이 대신 처리했을 부분)
+            hit_reason = None
+            if side == 'long':
+                if fixed_sl is not None and current_price <= fixed_sl:
+                    hit_reason = f"SL 도달(시뮬레이션, {fixed_sl:.4f})"
+                elif fixed_tp is not None and current_price >= fixed_tp:
+                    hit_reason = f"TP 도달(시뮬레이션, {fixed_tp:.4f})"
+            else:  # short
+                if fixed_sl is not None and current_price >= fixed_sl:
+                    hit_reason = f"SL 도달(시뮬레이션, {fixed_sl:.4f})"
+                elif fixed_tp is not None and current_price <= fixed_tp:
+                    hit_reason = f"TP 도달(시뮬레이션, {fixed_tp:.4f})"
+
+            # 2) 고정 SL/TP 미도달 시 트레일링 스탑 평가 (실거래 trailing_stop_monitor와 동일 로직 재사용)
+            if hit_reason is None:
+                new_sl, new_tp, should_close = self.update_trailing_stop(pos, current_price, config)
+                pos['sl_price'] = new_sl
+                pos['tp_price'] = new_tp
+                if should_close:
+                    hit_reason = f"트레일링 스탑 청산(시뮬레이션, SL={new_sl:.4f})"
+
+            if hit_reason:
+                active_logger.info(f"[가상청산] {side.upper()} {symbol} 현재가:{current_price} → {hit_reason}")
+                trade_logger.info(f"[가상청산] {side.upper()} {symbol} 현재가:{current_price} → {hit_reason}")
+                if self.trade_recorder:
+                    try:
+                        self.trade_recorder.record_exit(
+                            symbol=symbol,
+                            side=side,
+                            exit_price=current_price,
+                            quantity=pos['size'],
+                            entry_price=entry_price,
+                            # 원 진입 시 마진(entry_usdt)은 가상 포지션 상태에 저장돼 있지 않아
+                            # entry_price * 수량으로 근사한다(레버리지 반영 전 명목가치 근사치).
+                            entry_usdt=entry_price * pos['size'],
+                            exit_reason=hit_reason,
+                        )
+                    except Exception as e:
+                        active_logger.error(f"[가상청산 기록 실패] {side.upper()} {symbol}: {e}")
+                self.sim_position[side] = None
 
     # 포지션별 최고 수익률 추적 (Profit Trailing Stop용)
     # 구조: {symbol_side: {'peak_pnl': float, 'entry_price': float}}

@@ -310,9 +310,13 @@ def main():
                             last_trade_price = current_price
                             last_trades_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
-            if config['trading'].get('read_only_mode', False) is False: 
+            if config['trading'].get('read_only_mode', False) is False:
                 # 트레일링 스탑 모니터링 및 조정
                 strategy.position_manager.trailing_stop_monitor(exchange, symbol, config)
+            else:
+                # (2026-09-17 신규) read_only_mode=True(시뮬레이션): 실제 주문 없이 가상 포지션의
+                # SL/TP/트레일링을 평가해서 조건 충족 시 DB에 가상 청산 기록을 남긴다(페이퍼 트레이딩).
+                strategy.position_manager.simulate_position_monitor(exchange, symbol, config)
 
             # 포지션 상태 상세 로그 함수 호출
             strategy.position_manager.log_position_status(exchange, symbol, logger)
