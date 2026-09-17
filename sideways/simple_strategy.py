@@ -325,42 +325,66 @@ class SidewaysStrategy:
             # 추세매매 중 추세방향 포지션이 유지되고 반대포지션만 청산되는 건 이미 자동 보장됨
             # (전략이 애초에 추세와 같은 방향으로만 진입 신호를 내므로, action은 항상 추세 방향).
             auto_close_opposite = self.config['trading'].get('auto_close_opposite', False)
+            # (2026-09-18 추가, 사용자 요청) 반대 포지션이 "손실 중"일 때도 무조건 강제청산하면
+            # 잦은 추세전환(휩소) 구간에서 손절을 계속 확정시켜 무리한 누적손실이 날 수 있다.
+            # 이 옵션이 True면 반대 포지션이 수익 중일 때만 자동청산하고, 손실 중이면 건드리지
+            # 않고 그 포지션 자체의 SL/TP/트레일링에 맡긴다(즉 완전 청산 대신 "양방향 보유"를
+            # 잠시 허용). hedge 모드라 롱/숏 동시 보유가 가능하기 때문에 구조적으로 문제없다.
+            only_if_profitable = self.config['trading'].get('auto_close_opposite_only_if_profitable', True)
             if auto_close_opposite:
                 if self.config['trading'].get('read_only_mode', False) is False:
+                    # self.current_price는 바로 앞서 execute_trading()에서 이미 조회된 값이라
+                    # 재사용(불필요한 API 콜 방지), 없으면 폴백으로 다시 조회.
+                    cur_price = self.current_price or self.position_manager.get_current_price(self.exchange, self.symbol)
                     if action == 'long' and has_short:
-                        active_logger.info(f"🔄 LONG 진입 → SHORT 포지션 청산 시도, 진입가: {short_price}, 수량: {short_amount}")
-                        try:
-                            close_result = self.position_manager.close_position(self.exchange, self.symbol, 'short', short_amount)
-                            if close_result:
-                                active_logger.info(f"{Colors.GREEN}✓ SHORT 포지션 청산 성공!{Colors.END}")
-                            else:
-                                active_logger.error(f"{Colors.RED}✗ SHORT 포지션 청산 실패!{Colors.END}")
-                        except Exception as e:
-                            active_logger.error(f"{Colors.RED}✗ SHORT 포지션 청산 예외 발생: {e}{Colors.END}")
+                        if only_if_profitable and not self.position_manager.is_side_profitable('short', short_price, cur_price):
+                            active_logger.info(f"🔸 SHORT 포지션이 손실 중(진입가:{short_price}, 현재가:{cur_price}) → 자동청산 스킵, 자체 SL/TP/트레일링에 맡김")
+                        else:
+                            active_logger.info(f"🔄 LONG 진입 → SHORT 포지션 청산 시도, 진입가: {short_price}, 수량: {short_amount}")
+                            try:
+                                close_result = self.position_manager.close_position(self.exchange, self.symbol, 'short', short_amount)
+                                if close_result:
+                                    active_logger.info(f"{Colors.GREEN}✓ SHORT 포지션 청산 성공!{Colors.END}")
+                                else:
+                                    active_logger.error(f"{Colors.RED}✗ SHORT 포지션 청산 실패!{Colors.END}")
+                            except Exception as e:
+                                active_logger.error(f"{Colors.RED}✗ SHORT 포지션 청산 예외 발생: {e}{Colors.END}")
                     elif action == 'short' and has_long:
-                        active_logger.info(f"🔄 SHORT 진입 → LONG 포지션 청산 시도, 진입가: {long_price}, 수량: {long_amount}")
-                        try:
-                            close_result = self.position_manager.close_position(self.exchange, self.symbol, 'long', long_amount)
-                            if close_result:
-                                active_logger.info(f"{Colors.GREEN}✓ LONG 포지션 청산 성공!{Colors.END}")
-                            else:
-                                active_logger.error(f"{Colors.RED}✗ LONG 포지션 청산 실패!{Colors.END}")
-                        except Exception as e:
-                            active_logger.error(f"{Colors.RED}✗ LONG 포지션 청산 예외 발생: {e}{Colors.END}")
+                        if only_if_profitable and not self.position_manager.is_side_profitable('long', long_price, cur_price):
+                            active_logger.info(f"🔸 LONG 포지션이 손실 중(진입가:{long_price}, 현재가:{cur_price}) → 자동청산 스킵, 자체 SL/TP/트레일링에 맡김")
+                        else:
+                            active_logger.info(f"🔄 SHORT 진입 → LONG 포지션 청산 시도, 진입가: {long_price}, 수량: {long_amount}")
+                            try:
+                                close_result = self.position_manager.close_position(self.exchange, self.symbol, 'long', long_amount)
+                                if close_result:
+                                    active_logger.info(f"{Colors.GREEN}✓ LONG 포지션 청산 성공!{Colors.END}")
+                                else:
+                                    active_logger.error(f"{Colors.RED}✗ LONG 포지션 청산 실패!{Colors.END}")
+                            except Exception as e:
+                                active_logger.error(f"{Colors.RED}✗ LONG 포지션 청산 예외 발생: {e}{Colors.END}")
                 else:
                     # (2026-09-18 신규) read_only_mode=True: has_long/has_short는 거래소 실제
                     # 포지션 기준이라 시뮬레이션에선 항상 비어있다 — 대신 sim_position을 본다.
                     # 실제 거래소 주문은 실행하지 않는다.
-                    if action == 'long' and self.position_manager.sim_position.get('short'):
-                        active_logger.info(f"🔄 [시뮬레이션] LONG 진입 → 가상 SHORT 포지션 자동청산 시도")
-                        closed = self.position_manager.close_simulated_position(self.exchange, self.symbol, 'short')
-                        if closed:
-                            active_logger.info(f"{Colors.GREEN}✓ [시뮬레이션] 가상 SHORT 포지션 청산 완료!{Colors.END}")
-                    elif action == 'short' and self.position_manager.sim_position.get('long'):
-                        active_logger.info(f"🔄 [시뮬레이션] SHORT 진입 → 가상 LONG 포지션 자동청산 시도")
-                        closed = self.position_manager.close_simulated_position(self.exchange, self.symbol, 'long')
-                        if closed:
-                            active_logger.info(f"{Colors.GREEN}✓ [시뮬레이션] 가상 LONG 포지션 청산 완료!{Colors.END}")
+                    cur_price = self.current_price or self.position_manager.get_current_price(self.exchange, self.symbol)
+                    sim_short = self.position_manager.sim_position.get('short')
+                    sim_long = self.position_manager.sim_position.get('long')
+                    if action == 'long' and sim_short:
+                        if only_if_profitable and not self.position_manager.is_side_profitable('short', sim_short.get('entry_price'), cur_price):
+                            active_logger.info(f"🔸 [시뮬레이션] 가상 SHORT 포지션이 손실 중 → 자동청산 스킵, 자체 SL/TP/트레일링에 맡김")
+                        else:
+                            active_logger.info(f"🔄 [시뮬레이션] LONG 진입 → 가상 SHORT 포지션 자동청산 시도")
+                            closed = self.position_manager.close_simulated_position(self.exchange, self.symbol, 'short')
+                            if closed:
+                                active_logger.info(f"{Colors.GREEN}✓ [시뮬레이션] 가상 SHORT 포지션 청산 완료!{Colors.END}")
+                    elif action == 'short' and sim_long:
+                        if only_if_profitable and not self.position_manager.is_side_profitable('long', sim_long.get('entry_price'), cur_price):
+                            active_logger.info(f"🔸 [시뮬레이션] 가상 LONG 포지션이 손실 중 → 자동청산 스킵, 자체 SL/TP/트레일링에 맡김")
+                        else:
+                            active_logger.info(f"🔄 [시뮬레이션] SHORT 진입 → 가상 LONG 포지션 자동청산 시도")
+                            closed = self.position_manager.close_simulated_position(self.exchange, self.symbol, 'long')
+                            if closed:
+                                active_logger.info(f"{Colors.GREEN}✓ [시뮬레이션] 가상 LONG 포지션 청산 완료!{Colors.END}")
 
             # 진입 시도 (분할 진입 로직 개선)
             analysis = self.position_manager.get_entry_signal(self.exchange, self.symbol, action, config=self.config)

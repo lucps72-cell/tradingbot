@@ -28,6 +28,8 @@
     "_comment_allow_same_position": "같은 방향의 포지션 중복 허용 (true/false)",
     "auto_close_opposite": true,
     "_comment_auto_close_opposite": "반대 방향 신호 시 기존 포지션 자동 청산 (true=청산, false=유지). 2026-09-18: Finding F(전략 청산신호 미구현) 정식 설계로 확정 — 청산은 이 옵션(반대포지션 자동청산) + 트레일링 SL/TP 조합으로 처리, 별도 전략 청산신호는 만들지 않음. read_only_mode에서도 sim_position 기준으로 동일하게 동작.",
+    "auto_close_opposite_only_if_profitable": true,
+    "_comment_auto_close_opposite_only_if_profitable": "2026-09-18 신규: true면 반대 포지션이 '수익 중'일 때만 자동청산하고, 손실 중이면 건드리지 않고 그 포지션 자체 SL/TP/트레일링에 맡긴다. 잦은 추세전환(휩소) 구간에서 손실 포지션을 계속 강제 확정시켜 무리한 누적손실이 나는 것을 방지.",
     "read_only_mode": true,
     "_comment_read_only_mode": "🔴 테스트 모드: 실제 주문 없이 시뮬레이션만 실행 (운영시 false로 변경)",
     "max_position_pct": 0.16,

@@ -41,6 +41,20 @@ class PositionManager:
         """
         return self.config if self.config else load_config(os.path.join(os.path.dirname(__file__), 'config.json'))
 
+    def is_side_profitable(self, side: str, entry_price: Optional[float], current_price: Optional[float]) -> bool:
+        """
+        (2026-09-18 신규) side 방향 포지션이 현재가 기준으로 수익 중인지(수수료·슬리피지
+        미반영, 가격 방향만) 판정한다. auto_close_opposite에서 "반대 포지션이 손실 중이면
+        강제청산에서 제외"할 때 쓴다(사용자 요청 — 잦은 포지션 전환으로 인한 무리한 손실
+        방지). entry_price/current_price 중 하나라도 없으면 보수적으로 False(수익 아님).
+        """
+        if entry_price is None or current_price is None:
+            return False
+        if side == 'long':
+            return current_price > entry_price
+        else:  # short
+            return current_price < entry_price
+
     def get_current_price(self, exchange, symbol: str) -> float:
         """
         거래소에서 실시간 현재가를 조회한다.
