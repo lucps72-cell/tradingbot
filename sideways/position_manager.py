@@ -554,24 +554,56 @@ class PositionManager:
                     hit_reason = f"트레일링 스탑 청산(시뮬레이션, SL={new_sl:.4f})"
 
             if hit_reason:
-                active_logger.info(f"[가상청산] {side.upper()} {symbol} 현재가:{current_price} → {hit_reason}")
-                trade_logger.info(f"[가상청산] {side.upper()} {symbol} 현재가:{current_price} → {hit_reason}")
-                if self.trade_recorder:
-                    try:
-                        self.trade_recorder.record_exit(
-                            symbol=symbol,
-                            side=side,
-                            exit_price=current_price,
-                            quantity=pos['size'],
-                            entry_price=entry_price,
-                            # 원 진입 시 마진(entry_usdt)은 가상 포지션 상태에 저장돼 있지 않아
-                            # entry_price * 수량으로 근사한다(레버리지 반영 전 명목가치 근사치).
-                            entry_usdt=entry_price * pos['size'],
-                            exit_reason=hit_reason,
-                        )
-                    except Exception as e:
-                        active_logger.error(f"[가상청산 기록 실패] {side.upper()} {symbol}: {e}")
-                self.sim_position[side] = None
+                self._close_simulated_position(symbol, side, current_price, hit_reason)
+
+    def _close_simulated_position(self, symbol, side, exit_price, exit_reason):
+        """
+        (2026-09-17 신설, 2026-09-18 simulate_position_monitor에서 분리) 가상 포지션을
+        실제로 비우고 record_exit()을 남기는 공통 로직. simulate_position_monitor(SL/TP/
+        트레일링 도달)와 close_simulated_position(반대 포지션 진입 시 자동청산, 신규)이
+        공유한다. 실제 거래소 주문은 전혀 실행하지 않는다.
+        """
+        pos = self.sim_position.get(side)
+        if not pos or pos.get('size', 0) <= 0:
+            return
+        active_logger.info(f"[가상청산] {side.upper()} {symbol} 현재가:{exit_price} → {exit_reason}")
+        trade_logger.info(f"[가상청산] {side.upper()} {symbol} 현재가:{exit_price} → {exit_reason}")
+        if self.trade_recorder:
+            try:
+                self.trade_recorder.record_exit(
+                    symbol=symbol,
+                    side=side,
+                    exit_price=exit_price,
+                    quantity=pos['size'],
+                    entry_price=pos['entry_price'],
+                    # 원 진입 시 마진(entry_usdt)은 가상 포지션 상태에 저장돼 있지 않아
+                    # entry_price * 수량으로 근사한다(레버리지 반영 전 명목가치 근사치).
+                    entry_usdt=pos['entry_price'] * pos['size'],
+                    exit_reason=exit_reason,
+                )
+            except Exception as e:
+                active_logger.error(f"[가상청산 기록 실패] {side.upper()} {symbol}: {e}")
+        self.sim_position[side] = None
+
+    def close_simulated_position(self, exchange, symbol, side):
+        """
+        (2026-09-18 신규) read_only_mode=True 전용 — auto_close_opposite와 짝을 이룬다.
+        실거래에서는 close_position(exchange, symbol, side)이 반대 포지션을 실제로 청산하는데,
+        read_only_mode에서는 real position이 애초에 없으므로(주문 자체가 안 나감) 대신
+        sim_position을 청산 처리한다. 실제 거래소 주문은 실행하지 않는다(현재가 조회만 함).
+
+        Returns:
+            가상 포지션이 있어서 청산 처리했으면 True, 애초에 포지션이 없었으면 False.
+        """
+        pos = self.sim_position.get(side)
+        if not pos or pos.get('size', 0) <= 0:
+            return False
+        current_price = self.get_current_price(exchange, symbol)
+        if current_price is None:
+            active_logger.warning(f"[가상청산 실패] {side.upper()} {symbol}: 현재가 조회 실패로 청산 보류")
+            return False
+        self._close_simulated_position(symbol, side, current_price, "반대 포지션 진입에 따른 자동청산(시뮬레이션)")
+        return True
 
     # 포지션별 최고 수익률 추적 (Profit Trailing Stop용)
     # 구조: {symbol_side: {'peak_pnl': float, 'entry_price': float}}

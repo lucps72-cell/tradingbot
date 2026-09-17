@@ -320,9 +320,13 @@ class SidewaysStrategy:
                     active_logger.info(f"{Colors.RED}✓ SHORT 포지션 청산 완료!{Colors.END}")
         else:
             # 반대 포지션 존재 시 청산 정책 (True: 자동청산, False: 청산안함)
+            # (2026-09-18, Finding F 정식 설계 확정 — 사용자 지시) "청산은 별도 전략 신호가
+            # 아니라 (1) 반대 포지션 진입 시 자동청산 + (2) 트레일링 SL/TP 조합으로 처리한다."
+            # 추세매매 중 추세방향 포지션이 유지되고 반대포지션만 청산되는 건 이미 자동 보장됨
+            # (전략이 애초에 추세와 같은 방향으로만 진입 신호를 내므로, action은 항상 추세 방향).
             auto_close_opposite = self.config['trading'].get('auto_close_opposite', False)
             if auto_close_opposite:
-                if self.config['trading'].get('read_only_mode', False) is False: 
+                if self.config['trading'].get('read_only_mode', False) is False:
                     if action == 'long' and has_short:
                         active_logger.info(f"🔄 LONG 진입 → SHORT 포지션 청산 시도, 진입가: {short_price}, 수량: {short_amount}")
                         try:
@@ -343,6 +347,20 @@ class SidewaysStrategy:
                                 active_logger.error(f"{Colors.RED}✗ LONG 포지션 청산 실패!{Colors.END}")
                         except Exception as e:
                             active_logger.error(f"{Colors.RED}✗ LONG 포지션 청산 예외 발생: {e}{Colors.END}")
+                else:
+                    # (2026-09-18 신규) read_only_mode=True: has_long/has_short는 거래소 실제
+                    # 포지션 기준이라 시뮬레이션에선 항상 비어있다 — 대신 sim_position을 본다.
+                    # 실제 거래소 주문은 실행하지 않는다.
+                    if action == 'long' and self.position_manager.sim_position.get('short'):
+                        active_logger.info(f"🔄 [시뮬레이션] LONG 진입 → 가상 SHORT 포지션 자동청산 시도")
+                        closed = self.position_manager.close_simulated_position(self.exchange, self.symbol, 'short')
+                        if closed:
+                            active_logger.info(f"{Colors.GREEN}✓ [시뮬레이션] 가상 SHORT 포지션 청산 완료!{Colors.END}")
+                    elif action == 'short' and self.position_manager.sim_position.get('long'):
+                        active_logger.info(f"🔄 [시뮬레이션] SHORT 진입 → 가상 LONG 포지션 자동청산 시도")
+                        closed = self.position_manager.close_simulated_position(self.exchange, self.symbol, 'long')
+                        if closed:
+                            active_logger.info(f"{Colors.GREEN}✓ [시뮬레이션] 가상 LONG 포지션 청산 완료!{Colors.END}")
 
             # 진입 시도 (분할 진입 로직 개선)
             analysis = self.position_manager.get_entry_signal(self.exchange, self.symbol, action, config=self.config)
