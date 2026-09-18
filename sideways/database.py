@@ -197,32 +197,56 @@ class SQLiteDatabase(TradeDatabase):
             return False
 
     def close_trade(self, symbol: str, side: str, trade_data: Dict[str, Any]) -> bool:
-        """가장 최근의 열린 거래를 청산 정보로 갱신"""
+        """
+        해당 symbol+side의 열려있는(status='open') 거래를 전부 청산 정보로 갱신한다.
+
+        (2026-09-18 수정) 이전엔 "ORDER BY id DESC LIMIT 1"로 가장 최근 1건만 갱신했다.
+        entry_split_count>1(분할 진입)이면 record_entry()가 매 분할마다 별도의 'open'
+        행을 만드는데, 실제 청산(close_position/close_simulated_position)은 분할 여부와
+        무관하게 심볼+방향 전체를 한 번에 닫는다 — 그런데 DB에서는 그 중 가장 최근 1건만
+        'closed'로 바뀌고 나머지 분할 행들은 실제로는 이미 청산됐는데도 영원히 'open'으로
+        남는 버그가 있었다(사용자 리포트: "반대 포지션이 여러 개면 하나만 청산된다").
+        이제 해당 symbol+side의 open 행을 전부 찾아, 각 행 자신의 entry_price/quantity/
+        entry_usdt를 기준으로 pnl/pnl_pct를 개별 계산(공용 exit_price 사용)해서 모두
+        갱신한다 — trade_data로 넘어온 집계 pnl/pnl_pct는 분할별로 부정확하므로 더 이상
+        그대로 쓰지 않는다.
+        """
         try:
             now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             self.cursor.execute('''
-                SELECT id FROM trades
+                SELECT id, entry_price, quantity, entry_usdt FROM trades
                 WHERE symbol = ? AND side = ? AND status = 'open'
-                ORDER BY id DESC LIMIT 1
+                ORDER BY id ASC
             ''', (symbol, side))
-            row = self.cursor.fetchone()
-            if not row:
+            rows = self.cursor.fetchall()
+            if not rows:
                 active_logger.warning(f"SQLite 열린 거래를 찾을 수 없음: {symbol} {side}")
                 return False
 
-            self.cursor.execute('''
-                UPDATE trades
-                SET exit_price = ?, exit_time = ?, pnl = ?, pnl_pct = ?,
-                    status = 'closed', signal_reason = ?, updated_at = ?
-                WHERE id = ?
-            ''', (
-                trade_data.get('exit_price'), trade_data.get('exit_time'),
-                trade_data.get('pnl'), trade_data.get('pnl_pct'),
-                trade_data.get('signal_reason', ''), now, row[0]
-            ))
+            exit_price = trade_data.get('exit_price')
+            exit_time = trade_data.get('exit_time')
+            signal_reason = trade_data.get('signal_reason', '')
+            closed_ids = []
+            for row_id, row_entry_price, row_qty, row_entry_usdt in rows:
+                row_pnl = None
+                row_pnl_pct = None
+                if exit_price is not None and row_entry_price is not None and row_qty is not None:
+                    if side == 'long':
+                        row_pnl = (exit_price - row_entry_price) * row_qty
+                    else:
+                        row_pnl = (row_entry_price - exit_price) * row_qty
+                    row_pnl_pct = (row_pnl / row_entry_usdt * 100) if row_entry_usdt else 0
+
+                self.cursor.execute('''
+                    UPDATE trades
+                    SET exit_price = ?, exit_time = ?, pnl = ?, pnl_pct = ?,
+                        status = 'closed', signal_reason = ?, updated_at = ?
+                    WHERE id = ?
+                ''', (exit_price, exit_time, row_pnl, row_pnl_pct, signal_reason, now, row_id))
+                closed_ids.append(row_id)
             self.conn.commit()
-            active_logger.debug(f"SQLite 거래 청산 갱신 완료 (ID: {row[0]}): {symbol} {side}")
-            return self.cursor.rowcount == 1
+            active_logger.debug(f"SQLite 거래 청산 갱신 완료 (ID: {closed_ids}, {len(closed_ids)}건): {symbol} {side}")
+            return len(closed_ids) > 0
         except Exception as e:
             active_logger.error(f"SQLite 거래 청산 갱신 실패: {e}")
             return False
@@ -509,36 +533,58 @@ class MySQLDatabase(TradeDatabase):
             return False
 
     def close_trade(self, symbol: str, side: str, trade_data: Dict[str, Any]) -> bool:
-        """가장 최근의 열린 거래를 청산 정보로 갱신"""
+        """
+        해당 symbol+side의 열려있는(status='open') 거래를 전부 청산 정보로 갱신한다.
+        (2026-09-18 수정) SQLiteDatabase.close_trade()와 동일한 버그·수정 — "ORDER BY id
+        DESC LIMIT 1"로 가장 최근 1건만 갱신하던 걸, 분할 진입으로 생긴 open 행 전부를
+        찾아 각 행 자신의 entry_price/quantity/entry_usdt 기준으로 pnl/pnl_pct를
+        개별 계산해서 모두 갱신하도록 수정. 자세한 배경은 SQLiteDatabase 쪽 docstring 참고.
+        """
         try:
             if not self.initialized or not self.conn or not self.cursor:
                 active_logger.error("MySQL 거래 청산 실패: 데이터베이스 연결이 초기화되지 않았습니다.")
                 return False
             now = datetime.now()
             self.cursor.execute('''
-                SELECT id FROM trades
+                SELECT id, entry_price, quantity, entry_usdt FROM trades
                 WHERE symbol = %s AND side = %s AND status = 'open'
-                ORDER BY id DESC LIMIT 1
+                ORDER BY id ASC
             ''', (symbol, side))
-            row = self.cursor.fetchone()
-            if not row:
+            rows = self.cursor.fetchall()
+            if not rows:
                 active_logger.warning(f"MySQL 열린 거래를 찾을 수 없음: {symbol} {side}")
                 return False
 
-            trade_id = row['id']
-            self.cursor.execute('''
-                UPDATE trades
-                SET exit_price = %s, exit_time = %s, pnl = %s, pnl_pct = %s,
-                    status = 'closed', signal_reason = %s, updated_at = %s
-                WHERE id = %s
-            ''', (
-                trade_data.get('exit_price'), trade_data.get('exit_time'),
-                trade_data.get('pnl'), trade_data.get('pnl_pct'),
-                trade_data.get('signal_reason', ''), now, trade_id
-            ))
+            exit_price = trade_data.get('exit_price')
+            exit_time = trade_data.get('exit_time')
+            signal_reason = trade_data.get('signal_reason', '')
+            closed_ids = []
+            for row in rows:
+                row_id = row['id']
+                row_entry_price = row['entry_price']
+                row_qty = row['quantity']
+                row_entry_usdt = row['entry_usdt']
+                row_pnl = None
+                row_pnl_pct = None
+                if exit_price is not None and row_entry_price is not None and row_qty is not None:
+                    row_entry_price = float(row_entry_price)
+                    row_qty = float(row_qty)
+                    if side == 'long':
+                        row_pnl = (float(exit_price) - row_entry_price) * row_qty
+                    else:
+                        row_pnl = (row_entry_price - float(exit_price)) * row_qty
+                    row_pnl_pct = (row_pnl / float(row_entry_usdt) * 100) if row_entry_usdt else 0
+
+                self.cursor.execute('''
+                    UPDATE trades
+                    SET exit_price = %s, exit_time = %s, pnl = %s, pnl_pct = %s,
+                        status = 'closed', signal_reason = %s, updated_at = %s
+                    WHERE id = %s
+                ''', (exit_price, exit_time, row_pnl, row_pnl_pct, signal_reason, now, row_id))
+                closed_ids.append(row_id)
             self.conn.commit()
-            active_logger.debug(f"MySQL 거래 청산 갱신 완료 (ID: {trade_id}): {symbol} {side}")
-            return self.cursor.rowcount == 1
+            active_logger.debug(f"MySQL 거래 청산 갱신 완료 (ID: {closed_ids}, {len(closed_ids)}건): {symbol} {side}")
+            return len(closed_ids) > 0
         except Exception as e:
             active_logger.error(f"MySQL 거래 청산 갱신 실패: {e}")
             return False
