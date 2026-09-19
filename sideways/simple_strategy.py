@@ -244,6 +244,41 @@ class SidewaysStrategy:
                 return_position_msg = f"매수 제한(하락추세) | {return_position_msg}"
                 return_position_hgh = None
 
+        # (2026-09-19 신규, 사용자 지시) 위 메인 신호 트리(EMA크로스/RSI다이버전스/거래량돌파 등)에서
+        # 아무 신호도 나지 않았을 때, 최후 수단으로 5분봉 추세 방향의 되돌림(pullback) 진입을
+        # 1분봉 지표로 확인한다. get_pullback_signal()/detect_pullback_entry()는 구현만 돼 있고
+        # 전혀 호출되지 않던 죽은 코드였다(2026-09-18 분석에서 발견) — 여기서 실제로 연결한다.
+        if return_position_hgh is None and return_position_low is None:
+            # detect_pullback_entry가 기대하는 형식으로 1분봉 지표 딕셔너리 구성
+            pullback_ind = {
+                tf_low_fast: ema_low_series.get(tf_low_fast),
+                tf_low_medium: ema_low_series.get(tf_low_medium),
+                'rsi': rsi_low,
+                'bb_lower': bb_low_down,
+                'bb_upper': bb_low_top,
+                'bb_middle': bb_low_mid,
+                'volume': df_low['volume'],
+                'volume_ma': df_low['volume'].rolling(
+                    window=self.config.get("strategy", {}).get("volume", {}).get("volume_ma_period", 30)
+                ).mean(),
+            }
+            # 밴드 하단/상단 근접 여부 — 위(93행 부근)에서 1분봉 기준으로 이미 계산해 둔
+            # price_pos_info를 재사용(determine_trade_signal 내부의 band_position_lower/upper와 동일 계산).
+            pullback_near_lower = (price_pos_info['closest_bb'] == 'lower')
+            pullback_near_upper = (price_pos_info['closest_bb'] == 'upper')
+
+            pullback_signal = self.get_pullback_signal(
+                pullback_ind, pullback_near_upper, pullback_near_lower,
+                current_price, self.result_first_trend, fast=tf_low_fast, medium=tf_low_medium
+            )
+            if pullback_signal in ('long', 'short'):
+                return_position_low = pullback_signal
+                pullback_reason = f"되돌림(pullback) 진입: 5분봉추세={self.result_first_trend}, 방향={pullback_signal.upper()}"
+                return_position_msg = f"{pullback_reason} | {return_position_msg}"
+                # (사용자 요청) 되돌림 신호가 실제로 진입 방향을 바꾼 경우에만 로그를 남긴다.
+                active_logger.info(f"{Colors.YELLOW}⭐ [되돌림 신호 발동] {pullback_reason}{Colors.END}")
+                trade_logger.info(f"⭐ [되돌림 신호 발동] {pullback_reason} | 현재가:{current_price:.4f}")
+
         # if return_position_hgh is None and return_position_low is None:
         #     if ema_hgh_up and ema_low_up:
         #         return_position_msg = f"매수(상승추세) | {return_position_msg}"
@@ -1113,8 +1148,14 @@ class SidewaysStrategy:
             vol_val = volume.iloc[-1] if hasattr(volume, 'iloc') else volume if volume is not None else None
             vol_ma_val = volume_ma.iloc[-1] if hasattr(volume_ma, 'iloc') else volume_ma if volume_ma is not None else None
             # volume_spike
+            # (2026-09-19 수정) 'check_volume_spike' in globals()는 simple_strategy.py 모듈의
+            # 전역에 check_volume_spike라는 "맨이름"이 있는지 확인하는데, 이 파일은
+            # `from sideways import technical_indicators`로 모듈만 임포트했지 그 함수를
+            # 맨이름으로 임포트한 적이 없어서 이 조건이 항상 False였다 — volume_spike가
+            # 이 죽은 코드가 살아있던 시절부터 영원히 False로 고정되는 버그. technical_indicators
+            # 모듈 객체에 해당 함수가 실제로 있는지 확인하는 hasattr()로 정정.
             volume_spike = False
-            if volume is not None and volume_ma is not None and 'check_volume_spike' in globals():
+            if volume is not None and volume_ma is not None and hasattr(technical_indicators, 'check_volume_spike'):
                 try:
                     volume_spike = bool(technical_indicators.check_volume_spike(volume, volume_ma))
                 except Exception:
