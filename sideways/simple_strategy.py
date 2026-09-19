@@ -478,11 +478,18 @@ class SidewaysStrategy:
                 split_amount = order_amount_usdt / split_count
 
             # 누적 진입 금액 계산
-            total_entry_amount = 0.0
-            if action == 'long':
-                total_entry_amount = long_amount
-            elif action == 'short':
-                total_entry_amount = short_amount
+            # (2026-09-19 수정, 사용자 리포트 — 분할진입 동시손절 리스크 완화 사전 작업)
+            # 이전엔 read_only_mode(시뮬레이션)에서도 항상 거래소 실제 포지션(long_amount/
+            # short_amount)만 봤는데, 시뮬레이션에서는 실제 주문이 안 나가서 이 값들이 항상
+            # 0이다 — 즉 시뮬레이션에서는 아래 "분할 진입 최대 횟수 초과" 체크가 사실상 한
+            # 번도 작동하지 않고 있었다. sim_position도 함께 봐서 모드에 맞는 값을 쓰도록 수정.
+            if self.config['trading'].get('read_only_mode', False):
+                existing_pos = self.position_manager.sim_position.get(action)
+                total_entry_amount = existing_pos['size'] if existing_pos else 0.0
+                existing_entry_price = existing_pos['entry_price'] if existing_pos else None
+            else:
+                total_entry_amount = long_amount if action == 'long' else short_amount
+                existing_entry_price = (long_price if action == 'long' else short_price) or None
             entry_count = int(total_entry_amount // split_amount)
             #active_logger.info(f"[DEBUG] split_amount={split_amount}, total_entry_amount={total_entry_amount}, entry_count={entry_count}")
 
@@ -501,6 +508,18 @@ class SidewaysStrategy:
             if total_amount + split_amount > max_entry_amount:
                 active_logger.info(f"{Colors.YELLOW}⚠️ 분할 진입 총액 초과: {(total_amount + split_amount):.2f} > {max_entry_amount:.2f} USDT → 진입 거절{Colors.END}")
                 entry_limit_flag = True
+            # 3. (2026-09-19 신규, 사용자 리포트 — 분할진입 동시손절 리스크 완화)
+            #    이미 들어간 이전 분할이 현재 손실 중이면 추가 분할 진입을 보류한다.
+            #    지금까지는 분할 3회가 거의 같은 가격대에서 열려 SL도 한꺼번에 맞아 손실이
+            #    배가되는 문제가 있었다 — 이미 손실 중인 방향에 자금을 더 태우지 않도록 막는다.
+            #    (2번째 이후 분할에만 적용됨 — 최초 진입은 total_entry_amount가 0이라 통과)
+            if total_entry_amount > 0 and existing_entry_price is not None:
+                if not self.position_manager.is_side_profitable(action, existing_entry_price, current_entry_price):
+                    active_logger.info(
+                        f"{Colors.YELLOW}⚠️ 기존 {action.upper()} 분할 포지션이 손실 중"
+                        f"(진입가:{existing_entry_price:.4f}, 현재가:{current_entry_price:.4f}) → 추가 분할 진입 보류{Colors.END}"
+                    )
+                    entry_limit_flag = True
 
             if not entry_limit_flag:
                 if not analysis or 'entry_price' not in analysis or 'sl_price' not in analysis:
@@ -668,6 +687,13 @@ class SidewaysStrategy:
             ]
             up_count = sum(up_conds)
             down_count = sum(dn_conds)
+            # (2026-09-19 수정, 사용자 리포트 — 진입 필터 강화) 이전엔 "up_count>=2"가 하드코딩
+            # 돼 있어서 config.json의 trend_indicators.min_agreement(1)가 전혀 읽히지 않는
+            # 죽은 설정값이었다. 이제 여기서 실제로 읽어서 임계값으로 쓴다. 진입 신호 자체가
+            # 아니라 "추세를 uptrend/downtrend로 확정할지" 기준이라, 값을 올리면 애매한
+            # 구간에서 sideways로 더 많이 빠져 진입 빈도가 줄어든다(SL 히트율이 높았던
+            # 원인 — 신호 품질을 진입 빈도보다 우선).
+            min_agreement = self.config.get("strategy", {}).get("trend_indicators", {}).get("min_agreement", 2)
 
             def to_text(val, up_text="O", down_text="X"):
                 return up_text if val else down_text
@@ -683,10 +709,10 @@ class SidewaysStrategy:
             )
             active_logger.info(f"[종합조건] 상승조건 = {up_count} 하락조건 = {down_count}")
 
-            if up_count > down_count and up_count >= 2:
-                #active_logger.info(f"{Colors.GREEN}🟢 추세 : 상승{Colors.END}")   
+            if up_count > down_count and up_count >= min_agreement:
+                #active_logger.info(f"{Colors.GREEN}🟢 추세 : 상승{Colors.END}")
                 return_trend = "uptrend"
-            elif down_count > up_count and down_count >= 2:
+            elif down_count > up_count and down_count >= min_agreement:
                 #active_logger.info(f"{Colors.RED}🔴 추세 : 하락{Colors.END}")
                 return_trend = "downtrend"
             else:

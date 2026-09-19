@@ -57,6 +57,7 @@
     "use_atr_sl": true,
     "atr_period": 14,
     "atr_multiplier": 2.0,
+    "_comment_atr_multiplier": "2026-09-19: 이전엔 이 값이 전혀 읽히지 않고 refine_sl_tp_prices()에 sl_mult=0.3이 하드코딩돼 있었으며, 그마저도 계산 결과가 버려지는 죽은 코드였다(use_atr_sl=true여도 실제 SL/TP는 항상 sl_ratio/tp_ratio 그대로 나갔음) — 이제 실제로 반영됨. SL은 ATR거리와 sl_ratio거리 중 더 타이트한(손실이 작은) 쪽을 쓴다.",
     "adx_period": 14,
     "adx_threshold": 20
   },
@@ -75,8 +76,8 @@
       "entry_trigger": "1m"
     },
     "trend_indicators": {
-      "_comment_trend_indicators": "추세 인디케이터 사용 여부 및 최소 동의 수",
-      "min_agreement": 1,
+      "_comment_trend_indicators": "추세 인디케이터 사용 여부 및 최소 동의 수(9개 조건 중 몇 개가 동의해야 uptrend/downtrend로 확정할지). 2026-09-19: 이전엔 이 값이 전혀 읽히지 않고 코드에 2가 하드코딩돼 있던 죽은 설정이었다 — 이제 실제로 반영됨. 사용자 리포트(SL 39건 중 36건 손실=92%)에 따라 진입 신호 품질을 높이기 위해 1→3으로 상향.",
+      "min_agreement": 3,
       "use_price_structure": true,
       "use_ema": true,
       "use_bollinger": true,

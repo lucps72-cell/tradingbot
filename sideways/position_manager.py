@@ -874,55 +874,66 @@ class PositionManager:
         - 보정 후에도 방향이 뒤바뀌지 않도록 최소 1틱 간격 보장
         """
         config = self._get_config()
-        
+
         tick = get_price_tick_size(exchange, symbol)
         sl, tp = sl_price, tp_price
 
-        # ATR 기반 최소 거리 설정 (config에서 읽어오기)
+        # (2026-09-19 수정, Finding Q — 사용자 리포트로 발견) 이전엔 두 가지 버그가 있었다:
+        # 1) config의 atr_multiplier가 전혀 읽히지 않고 sl_mult=0.3/tp_mult=0.5가 하드코딩돼
+        #    있었다 — config에서 atr_multiplier를 바꿔도 아무 효과가 없었음.
+        # 2) 더 근본적으로, 아래에서 ATR 기반으로 계산한 sl/tp를 곧바로 이어지는 tick 반올림
+        #    단계(구 923~938행)가 원래 파라미터(sl_price/tp_price)를 다시 써서 덮어쓰고
+        #    있었다 — 즉 ATR 계산 자체가 완전히 죽은 코드였다. use_atr_sl=true여도 실제
+        #    SL/TP는 항상 sl_ratio/tp_ratio 값 그대로 나가고 있었다.
+        # 이제 atr_multiplier를 실제로 읽고, 계산한 sl/tp가 최종 반환값에 반영되도록 수정.
+        # 또한 사용자 제안대로 SL은 "더 타이트한(작은 손실) 쪽"을 쓰도록 설계 변경 —
+        # ATR이 sl_ratio보다 좁으면 손실을 줄이는 방향으로 SL을 좁히고, ATR이 더 넓으면
+        # 원래 sl_ratio를 유지한다(넓히지 않음 — 넓히면 손실율을 줄이자는 목적과 반대가 됨).
+        # TP는 기존 설계(최소 거리 보장 = 더 넓은 쪽)를 유지 — 변동성이 큰 구간에서 너무
+        # 일찍 익절되지 않도록 한다.
         atr_settings = {
             'enabled': config['risk_management'].get('use_atr_sl', False),
             'timeframe': config['strategy']['timeframes']['entry_trigger'],
             'period': config['risk_management'].get('atr_period', 14),
-            'sl_mult': 0.3,  # SL ATR 배수
-            'tp_mult': 0.5   # TP ATR 배수
+            'sl_mult': config['risk_management'].get('atr_multiplier', 2.0),
+            'tp_mult': config['risk_management'].get('atr_multiplier', 2.0) * config['risk_management'].get('risk_reward_ratio', 2.0),
         }
 
-        # ATR 기반 최소 거리 적용 (옵션)
         atr_info = None
         if atr_settings.get('enabled', False):
             tf = atr_settings.get('timeframe', '1m')
             period = atr_settings.get('period', 14)
-            sl_mult = atr_settings.get('sl_mult', 0.3)
-            tp_mult = atr_settings.get('tp_mult', 0.5)
+            sl_mult = atr_settings.get('sl_mult', 2.0)
+            tp_mult = atr_settings.get('tp_mult', 4.0)
 
             atr_value = get_recent_atr(exchange, symbol, tf, period)
             if atr_value and atr_value > 0:
-                atr_info = {'atr': atr_value, 'tf': tf, 'period': period, 'sl_mult': sl_mult, 'tp_mult': tp_mult}
-                min_sl_dist = sl_mult * atr_value
-                min_tp_dist = tp_mult * atr_value
+                atr_sl_dist = sl_mult * atr_value
+                atr_tp_dist = tp_mult * atr_value
+                ratio_sl_dist = abs(entry_price - sl_price)
+                ratio_tp_dist = abs(tp_price - entry_price)
+
+                # SL: 더 타이트한(작은) 거리를 채택 — 손실 축소가 목적
+                final_sl_dist = min(atr_sl_dist, ratio_sl_dist)
+                # TP: 더 넓은(큰) 거리를 채택 — 변동성 큰 구간에서 조기 익절 방지
+                final_tp_dist = max(atr_tp_dist, ratio_tp_dist)
+
+                atr_info = {
+                    'atr': atr_value, 'tf': tf, 'period': period,
+                    'sl_mult': sl_mult, 'tp_mult': tp_mult,
+                    'atr_sl_dist': atr_sl_dist, 'ratio_sl_dist': ratio_sl_dist, 'final_sl_dist': final_sl_dist,
+                }
 
                 if action == 'long':
-                    # SL는 엔트리 아래로 최소 거리 확보
-                    target_sl = entry_price - min_sl_dist
-                    if sl > target_sl:
-                        sl = target_sl
-                    # TP는 엔트리 위로 최소 거리 확보
-                    target_tp = entry_price + min_tp_dist
-                    if tp < target_tp:
-                        tp = target_tp
+                    sl = entry_price - final_sl_dist
+                    tp = entry_price + final_tp_dist
                 else:
-                    # short: SL는 엔트리 위로 최소 거리 확보
-                    target_sl = entry_price + min_sl_dist
-                    if sl < target_sl:
-                        sl = target_sl
-                    # TP는 엔트리 아래로 최소 거리 확보
-                    target_tp = entry_price - min_tp_dist
-                    if tp > target_tp:
-                        tp = target_tp
+                    sl = entry_price + final_sl_dist
+                    tp = entry_price - final_tp_dist
 
         if action == 'long':
-            sl = round_to_tick(sl_price, tick, 'down')
-            tp = round_to_tick(tp_price, tick, 'up')
+            sl = round_to_tick(sl, tick, 'down')
+            tp = round_to_tick(tp, tick, 'up')
             # 최소 1틱 간격 확보
             if sl >= entry_price:
                 sl = round_to_tick(entry_price - (tick or 0), tick or 1e-8, 'down')
@@ -930,8 +941,8 @@ class PositionManager:
                 tp = round_to_tick(entry_price + (tick or 0), tick or 1e-8, 'up')
         else:
             # short
-            sl = round_to_tick(sl_price, tick, 'up')
-            tp = round_to_tick(tp_price, tick, 'down')
+            sl = round_to_tick(sl, tick, 'up')
+            tp = round_to_tick(tp, tick, 'down')
             if sl <= entry_price:
                 sl = round_to_tick(entry_price + (tick or 0), tick or 1e-8, 'up')
             if tp >= entry_price:
@@ -947,7 +958,7 @@ class PositionManager:
             base = f"SL/TP 가격 보정: {', '.join(changed)} (tick={tick})"
             if atr_info:
                 base += f" | ATR={atr_info['atr']:.6f} ({atr_info['tf']}, P={atr_info['period']})"
-                base += f" | 최소거리: SL≥{atr_info['sl_mult']}*ATR, TP≥{atr_info['tp_mult']}*ATR"
+                base += f" | SL: ATR거리={atr_info['atr_sl_dist']:.6f} vs 비율거리={atr_info['ratio_sl_dist']:.6f} → 타이트한 쪽({atr_info['final_sl_dist']:.6f}) 채택"
             active_logger.info(base)
 
         return sl, tp
