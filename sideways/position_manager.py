@@ -820,15 +820,29 @@ class PositionManager:
         Args:
             exchange: CCXT 거래소 객체
             leverage: 이번 진입에 적용되는 레버리지
-            sl_ratio: 이번 진입의 실제 SL 거리 비율(0~1, 가격 기준) — config 기본값이 아니라
-                호출부가 analysis의 entry_price/sl_price로 직접 계산해서 넘겨야 한다
-                (ATR 기반 최소거리 보정 등으로 실제 폭이 config와 다를 수 있기 때문).
+            sl_ratio: 이번 진입의 실제 SL 거리 비율(0~1, 가격 기준). 호출부가 analysis의
+                entry_price/sl_price로 계산해서 넘긴다.
+                (2026-09-19 정정: 이전 주석에 "ATR 기반 최소거리 보정으로 실제 폭이 config와
+                다를 수 있다"고 적었는데 부정확했다 — get_entry_signal()이 쓰는
+                generate_entry_order()는 ATR을 전혀 반영하지 않고 항상 config의 sl_ratio
+                그대로 계산한다. ATR 반영은 refine_sl_tp_prices()에서만 일어나는데, 그건
+                execute_trade() 안에서 이 리스크 사이징이 끝난 "다음"에 실거래 주문 직전
+                호출된다 — 즉 지금 구조에서 여기 들어오는 sl_ratio는 사실상 항상 config의
+                sl_ratio와 같다. 그래도 misconfig나 향후 변경에 대비해 최소치는 방어한다.)
             risk_per_trade_pct: 잔고 대비 목표 손실 비율(0~1). 예: 0.002 = 0.2%
         Returns:
             계산된 증거금(USDT). 계산 불가(잔고 조회 실패, leverage/sl_ratio/risk_per_trade_pct가
             0 이하 등) 시 0.0 — 호출부는 0.0을 "리스크 기반 계산 실패"로 보고 config 고정값으로
             폴백해야 한다.
         """
+        # (2026-09-19 신규) sl_ratio가 비정상적으로 작으면(0에 가까우면) 증거금 = 목표손실
+        # ÷ (leverage × sl_ratio) 공식이 분모가 0에 가까워져 폭주할 수 있다(예: sl_ratio가
+        # 0.001%면 잔고의 수십~수백 배에 달하는 증거금이 계산될 수 있음). 현재 구조에서는
+        # sl_ratio가 항상 config의 sl_ratio 그대로라 실질적으로 발생하지 않지만, 설정 실수나
+        # 향후 코드 변경(예: ATR 반영 시점을 리스크 사이징 앞으로 당기는 경우)에 대비해
+        # 최소치를 방어적으로 클램프한다.
+        MIN_SL_RATIO_FOR_SIZING = 0.001  # 0.1% — 이보다 좁은 SL 거리는 사이징 계산에서 이 값으로 취급
+
         try:
             leverage = float(leverage)
             sl_ratio = float(sl_ratio)
@@ -839,6 +853,12 @@ class PositionManager:
                     f"risk_per_trade_pct={risk_per_trade_pct}) — 0 이하 값 존재"
                 )
                 return 0.0
+            if sl_ratio < MIN_SL_RATIO_FOR_SIZING:
+                active_logger.warning(
+                    f"리스크 기반 사이징: sl_ratio({sl_ratio*100:.4f}%)가 최소치({MIN_SL_RATIO_FOR_SIZING*100:.2f}%)보다 "
+                    f"좁아 증거금이 과도하게 커질 수 있음 — 최소치로 클램프해서 계산"
+                )
+                sl_ratio = MIN_SL_RATIO_FOR_SIZING
 
             balance = exchange.fetch_balance()
             usdt_available = balance.get('USDT', {}).get('free', None)

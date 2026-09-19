@@ -453,9 +453,14 @@ class SidewaysStrategy:
             # 비율로 자동계산"하도록 config.json의 고정 order_amount_usdt 대신, "SL에 맞았을 때
             # 잃는 금액이 잔고의 risk_per_trade_pct를 넘지 않도록" 증거금을 역산한다.
             # 공식: 증거금 = (잔고 × risk_per_trade_pct) ÷ (leverage × 실제SL거리비율)
-            # 실제 SL거리비율은 config의 sl_ratio 값이 아니라 analysis(entry_price/sl_price)로
-            # 직접 계산한다 — generate_entry_order()가 ATR 기반 최소거리 보정을 적용할 수 있어
-            # 실제 적용된 SL 폭이 config 기본값과 다를 수 있기 때문.
+            # 실제 SL거리비율은 analysis(entry_price/sl_price)로 직접 계산한다.
+            # (2026-09-19 정정) 예전 주석엔 "ATR 기반 최소거리 보정이 반영될 수 있다"고
+            # 적었는데 부정확했다 — get_entry_signal()이 쓰는 generate_entry_order()는
+            # ATR을 전혀 쓰지 않고 항상 config의 sl_ratio 그대로 계산한다. ATR 반영은
+            # refine_sl_tp_prices()에서만 일어나는데, 그건 execute_trade() 안에서 이
+            # 리스크 사이징이 끝난 "다음"에 실거래 주문 직전 호출된다 — 즉 여기서 계산하는
+            # actual_sl_ratio는 지금 구조에서 사실상 항상 config의 sl_ratio와 같다.
+            # (계산 파이프라인이 향후 바뀔 수 있어 analysis 기반 계산 방식 자체는 유지.)
             risk_cfg = self.config.get('risk_management', {})
             if risk_cfg.get('use_risk_based_sizing', False) and current_sl_price > 0:
                 actual_sl_ratio = abs(current_entry_price - current_sl_price) / current_entry_price
