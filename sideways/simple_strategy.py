@@ -485,11 +485,23 @@ class SidewaysStrategy:
             # 번도 작동하지 않고 있었다. sim_position도 함께 봐서 모드에 맞는 값을 쓰도록 수정.
             if self.config['trading'].get('read_only_mode', False):
                 existing_pos = self.position_manager.sim_position.get(action)
-                total_entry_amount = existing_pos['size'] if existing_pos else 0.0
+                total_entry_qty = existing_pos['size'] if existing_pos else 0.0
                 existing_entry_price = existing_pos['entry_price'] if existing_pos else None
             else:
-                total_entry_amount = long_amount if action == 'long' else short_amount
+                total_entry_qty = long_amount if action == 'long' else short_amount
                 existing_entry_price = (long_price if action == 'long' else short_price) or None
+
+            # (2026-09-19 신규 발견·수정, 사용자 리포트: "signal_reason이 항상 1/3회로만
+            # 기록된다") — 원래 total_entry_amount는 위 total_entry_qty(코인 수량)를 그대로
+            # split_amount/max_entry_amount(둘 다 USDT notional)와 단위 변환 없이 비교하고
+            # 있었다. 코인 수량은 보통 USDT notional보다 훨씬 작은 숫자라 entry_count가
+            # 사실상 항상 0으로 계산됐고("N/3회"가 항상 1/3회로 표시된 이유), 더 심각하게는
+            # "분할 진입 최대 횟수 초과"(1번 체크)·"분할 진입 총액 초과"(2번 체크) 안전장치가
+            # 실질적으로 한 번도 작동하지 않고 있었다(3회를 훨씬 넘게 분할 진입해도 막히지
+            # 않을 수 있었음) — get_adjusted_trade_amount()에서 고쳤던 것과 같은 부류의
+            # 단위 불일치 버그. 코인 수량을 (기존 진입가 기준, 없으면 이번 신호가 기준) USDT
+            # notional로 환산해서 비교하도록 수정.
+            total_entry_amount = total_entry_qty * (existing_entry_price or current_entry_price)
             entry_count = int(total_entry_amount // split_amount)
             #active_logger.info(f"[DEBUG] split_amount={split_amount}, total_entry_amount={total_entry_amount}, entry_count={entry_count}")
 
