@@ -90,11 +90,47 @@ def get_bollinger_bands(df: pd.DataFrame, window=20, num_std=2):
     return upper, ma, lower
 
 def get_rsi(df: pd.DataFrame, period=14):
-    """RSI 계산."""
+    """
+    RSI 계산.
+    (2026-09-20 변경, 사용자 결정 — M) 기존엔 단순이동평균(SMA) 기반 RSI(Cutler's RSI)를
+    썼다. 틀린 건 아니지만 TradingView 등 대부분 차트 플랫폼이 쓰는 "표준" RSI는
+    Wilder's smoothing(RMA)이라 차트에서 보는 값과 미묘하게 달랐다.
+
+    Wilder's/TradingView의 RMA는 "첫 유효값은 SMA로 시드하고, 그 이후는
+    avg = (이전avg×(period-1) + 현재값) / period 재귀식으로 이어가는" 방식이다.
+    (참고: `.ewm(alpha=1/period, adjust=False)`만 쓰면 이 SMA 시드 없이 첫 데이터부터
+    바로 재귀를 시작해서, alpha가 작을 때(예: period=14) 초기 워밍업 구간의 오차가
+    수십 봉이 지나도 잘 줄어들지 않는다 — 직접 구현해 검증하다가 발견, 그래서 SMA
+    시드 + 재귀식을 명시적으로 구현한다.)
+    """
     delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
+    # (주의) delta.where(delta > 0, 0.0) 방식은 delta[0]의 NaN을 0으로 바꿔버려서,
+    # 그게 SMA 시드에 "가짜 0"으로 섞여 들어가 period개의 실제 등락 대신 (period-1)개의
+    # 실제 등락 + 가짜 0으로 시드를 계산하는 미세한 오차가 있었다(직접 검증하다 발견).
+    # clip()은 NaN을 NaN 그대로 보존하므로 rolling(min_periods=period)이 정확히
+    # period개의 "실제" 등락이 모일 때까지 기다리게 된다.
+    gain = delta.clip(lower=0)
+    loss = (-delta).clip(lower=0)
+
+    avg_gain = gain.rolling(window=period, min_periods=period).mean()
+    avg_loss = loss.rolling(window=period, min_periods=period).mean()
+
+    gain_vals = gain.to_numpy()
+    loss_vals = loss.to_numpy()
+    avg_gain_vals = avg_gain.to_numpy()
+    avg_loss_vals = avg_loss.to_numpy()
+
+    # SMA로 시드된 첫 유효 인덱스 이후부터 Wilder's 재귀식으로 이어간다.
+    first_valid = avg_gain.first_valid_index()
+    if first_valid is not None:
+        start = df.index.get_loc(first_valid) + 1
+        for i in range(start, len(df)):
+            avg_gain_vals[i] = (avg_gain_vals[i - 1] * (period - 1) + gain_vals[i]) / period
+            avg_loss_vals[i] = (avg_loss_vals[i - 1] * (period - 1) + loss_vals[i]) / period
+
+    avg_gain = pd.Series(avg_gain_vals, index=df.index)
+    avg_loss = pd.Series(avg_loss_vals, index=df.index)
+    rs = avg_gain / avg_loss
 
     return 100 - (100 / (1 + rs))
 
