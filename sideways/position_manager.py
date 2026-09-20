@@ -82,63 +82,53 @@ class PositionManager:
                 #active_logger.info("[get_all_positions] 포지션 없음")
                 return self.position
 
-            sl_price = None
-            tp_price = None
+            # (2026-09-20 수정) 이전엔 롱/숏 블록이 각각 fetch_open_orders()를 따로
+            # 호출해서, 롱/숏이 동시에 존재하는 hedge 모드에서는 동일한 조회를 두 번
+            # 반복했다 — 여기서 한 번만 조회해 공유한다(불필요한 API 콜 제거).
+            #
+            # 더불어 이전엔 sl_price/tp_price 변수를 롱·숏 블록이 공유하고 있어서
+            # (둘 다 "값이 아직 None일 때만 채운다"는 가드만 있었음) 롱 포지션이 먼저
+            # 자기 SL/TP를 채워놓으면, 숏 블록은 자기 주문에서 값을 찾아도
+            # tp_price/sl_price가 이미 None이 아니라서 값을 덮어쓰지 못하고 롱의 값을
+            # 그대로 물려받는 버그가 있었다 — 롱·숏이 동시에 열려 있을 때 숏 포지션의
+            # SL/TP가 실제로는 롱 것으로 잘못 표시될 수 있었음. 롱/숏용 변수를
+            # 분리해서 해결.
+            orders = []
+            try:
+                orders = exchange.fetch_open_orders(symbol, params={"recv_window": 30000})
+            except Exception as e:
+                active_logger.error(f"[fetch_open_orders] 조회 오류: {e}")
 
-            # 롱 포지션 tp/sl 동기화
+            def _extract_tp_sl(order_side: str):
+                """order_side: 'sell'(롱 포지션의 청산 주문) 또는 'buy'(숏 포지션의 청산 주문)"""
+                found_tp, found_sl = None, None
+                for order in orders:
+                    tp_candidate = order.get('takeProfitPrice')
+                    sl_candidate = order.get('stopLossPrice')
+                    if order['type'] in ['market', 'limit'] and order.get('side') == order_side:
+                        if tp_candidate is not None and found_tp is None:
+                            try:
+                                found_tp = float(tp_candidate)
+                            except Exception:
+                                pass
+                        if sl_candidate is not None and found_sl is None:
+                            try:
+                                found_sl = float(sl_candidate)
+                            except Exception:
+                                pass
+                return found_tp, found_sl
+
+            # 롱 포지션 tp/sl 동기화 (청산 주문은 반대방향인 'sell'로 걸림)
             if current_long == 'long' and long_amount > 0:
-                # TP/SL 정보 읽기
-                try:
-                    orders = exchange.fetch_open_orders(symbol, params={"recv_window": 30000})
-                    for order in orders:
-                        #active_logger.info(f"주문 정보: {order}")
-                        # 익절가/손절가 추출
-                        tp_candidate = order.get('takeProfitPrice')
-                        sl_candidate = order.get('stopLossPrice')
-                        #active_logger.info(f"order.get('side') : {order.get('side')}, order['type'] : {order['type']}, tp_candidate 정보: {tp_candidate}, sl_candidate 정보: {sl_candidate}")
-                        if order['type'] in ['market', 'limit'] and order.get('side') == 'sell':
-                            if tp_candidate is not None and tp_price is None:
-                                try:
-                                    tp_price = float(tp_candidate)
-                                except Exception:
-                                    pass
-                            if sl_candidate is not None and sl_price is None:
-                                try:
-                                    sl_price = float(sl_candidate)
-                                except Exception:
-                                    pass
-                except Exception as e:
-                    active_logger.error(f"[fetch_open_orders] tp/sl 조회 오류: {e}")
-                    pass
-                self.position['long'] = {'side': 'long', 'entry_price': long_entry, 'size': abs(long_amount), 'sl_price': sl_price, 'tp_price': tp_price}
-                #active_logger.info(f"'side': 'long', 'entry_price': {long_entry}, 'size': {abs(long_amount)}, 'sl_price': {sl_price}, 'tp_price': {tp_price}")
-            
-            # 숏 포지션 tp/sl 동기화
+                long_tp_price, long_sl_price = _extract_tp_sl('sell')
+                self.position['long'] = {'side': 'long', 'entry_price': long_entry, 'size': abs(long_amount), 'sl_price': long_sl_price, 'tp_price': long_tp_price}
+                #active_logger.info(f"'side': 'long', 'entry_price': {long_entry}, 'size': {abs(long_amount)}, 'sl_price': {long_sl_price}, 'tp_price': {long_tp_price}")
+
+            # 숏 포지션 tp/sl 동기화 (청산 주문은 반대방향인 'buy'로 걸림)
             if current_short == 'short' and short_amount > 0:
-                try:
-                    orders = exchange.fetch_open_orders(symbol, params={"recv_window": 30000})
-                    for order in orders:
-                        #active_logger.info(f"주문 정보: {order}")
-                        # 익절가/손절가 추출
-                        tp_candidate = order.get('takeProfitPrice')
-                        sl_candidate = order.get('stopLossPrice')
-                        #active_logger.info(f"order.get('side') : {order.get('side')}, order['type'] : {order['type']}, tp_candidate 정보: {tp_candidate}, sl_candidate 정보: {sl_candidate}")
-                        if order['type'] in ['market', 'limit'] and order.get('side') == 'buy':
-                            if tp_candidate is not None and tp_price is None:
-                                try:
-                                    tp_price = float(tp_candidate)
-                                except Exception:
-                                    pass
-                            if sl_candidate is not None and sl_price is None:
-                                try:
-                                    sl_price = float(sl_candidate)
-                                except Exception:
-                                    pass
-                except Exception as e:
-                    active_logger.error(f"[fetch_open_orders] tp/sl 조회 오류: {e}")
-                    pass
-                self.position['short'] = {'side': 'short', 'entry_price': short_entry, 'size': abs(short_amount), 'sl_price': sl_price, 'tp_price': tp_price}
-                #active_logger.info(f"'side': 'short', 'entry_price': {short_entry}, 'size': {abs(short_amount)}, 'sl_price': {sl_price}, 'tp_price': {tp_price}")
+                short_tp_price, short_sl_price = _extract_tp_sl('buy')
+                self.position['short'] = {'side': 'short', 'entry_price': short_entry, 'size': abs(short_amount), 'sl_price': short_sl_price, 'tp_price': short_tp_price}
+                #active_logger.info(f"'side': 'short', 'entry_price': {short_entry}, 'size': {abs(short_amount)}, 'sl_price': {short_sl_price}, 'tp_price': {short_tp_price}")
 
         except Exception as e:
             active_logger.error(f"[fetch_and_set_position] 포지션 조회 오류: {e}")

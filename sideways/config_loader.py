@@ -74,22 +74,8 @@ def merge_configs(file_config: dict, args: object) -> dict:
     
     return merged
 
-
-def print_config(config: dict):
-    """Print current configuration in a readable format"""
-    print("\n" + "="*50)
-    print("CURRENT CONFIGURATION")
-    print("="*50)
-    print("\n[Trading]")
-    for key, value in config['trading'].items():
-        print(f"  {key}: {value}")
-    print("\n[RSI Thresholds - LONG]")
-    for tf, val in config['rsi_thresholds']['long'].items():
-        print(f"  {tf}: {val}")
-    print("\n[RSI Thresholds - SHORT]")
-    for tf, val in config['rsi_thresholds']['short'].items():
-        print(f"  {tf}: {val}")
-    print("\n[Price Filters]")
-    for key, value in config['price_filters'].items():
-        print(f"  {key}: {value}")
-    print("="*50 + "\n")
+# (정리 2026-09-20) print_config()를 여기서 제거했다. 코드 전체에서 단 한 번도 호출되지
+# 않는 죽은 코드였고, 참조하던 config['rsi_thresholds']/config['price_filters']는 현재
+# config.json 스키마에 아예 없는 구조(RSI 설정은 strategy.rsi로, 타임프레임별 구조 아님;
+# price_filters는 대응하는 키 자체가 없음) — 호출했다면 즉시 KeyError로 죽었을 것이다.
+# K(RiskManager)/L(죽은 스윙탐지)과 같은 부류의 죽은 코드 정리.
