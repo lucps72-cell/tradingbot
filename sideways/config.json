@@ -8,8 +8,19 @@
   },
   "trading": {
     "_comment_trading": "트레이딩 관련 설정: amount_mode(notional 레버리지 미사용, margin 레버리지 사용), max_position_pct 최대 주문 비중(예: 0.1 = 10%)",
-    "entry_cooldown_sec": 40,
-    "_comment_entry_cooldown_sec": "마지막 진입 후 다음 진입까지 대기시간 (40초)",
+    "reentry_guard": {
+      "_comment_reentry_guard": "2026-09-20 신규: main.py에 하드코딩돼 있던 반대/동일 포지션 재진입 방지 대기시간을 config로 뺐다(기존 값과 동일하게 유지, 동작 변화 없음). 예전 entry_cooldown_sec는 이걸 읽는 check_exclusion_filters()가 어디서도 호출되지 않는 죽은 코드라 삭제하고 이걸로 대체.",
+      "opposite_position_cooldown_sec": 180,
+      "same_position_cooldown_sec": 60,
+      "price_band_pct": 0.001
+    },
+    "circuit_breaker": {
+      "_comment_circuit_breaker": "2026-09-20 신규: 동일 심볼에서 짧은 시간 내 SL이 연속 발생하면 일정 시간 신규 진입을 중단하는 안전장치. read_only_mode(시뮬레이션)에서는 정확히 작동함 — 라이브 모드는 거래소 자체 조건부 주문(tpslMode=Partial)이 서버에서 체결되면 봇 코드가 그 이벤트를 못 봐서(별도로 알려진 문제) SL 발생 감지가 불완전할 수 있음, 추후 별도 보강 필요.",
+      "enabled": true,
+      "consecutive_sl_threshold": 2,
+      "lookback_minutes": 60,
+      "pause_minutes": 30
+    },
     "entry_split_count": 3,
     "_comment_entry_split_count": "한 번의 진입을 여러 번에 나누어 실행 (3회로 분할)",
     "symbol": "ETH/USDT:USDT",
@@ -57,9 +68,7 @@
     "use_atr_sl": true,
     "atr_period": 14,
     "atr_multiplier": 2.0,
-    "_comment_atr_multiplier": "2026-09-19: 이전엔 이 값이 전혀 읽히지 않고 refine_sl_tp_prices()에 sl_mult=0.3이 하드코딩돼 있었으며, 그마저도 계산 결과가 버려지는 죽은 코드였다(use_atr_sl=true여도 실제 SL/TP는 항상 sl_ratio/tp_ratio 그대로 나갔음) — 이제 실제로 반영됨. SL은 ATR거리와 sl_ratio거리 중 더 타이트한(손실이 작은) 쪽을 쓴다.",
-    "adx_period": 14,
-    "adx_threshold": 20
+    "_comment_atr_multiplier": "2026-09-19: 이전엔 이 값이 전혀 읽히지 않고 refine_sl_tp_prices()에 sl_mult=0.3이 하드코딩돼 있었으며, 그마저도 계산 결과가 버려지는 죽은 코드였다(use_atr_sl=true여도 실제 SL/TP는 항상 sl_ratio/tp_ratio 그대로 나갔음) — 이제 실제로 반영됨. SL은 ATR거리와 sl_ratio거리 중 더 타이트한(손실이 작은) 쪽을 쓴다."
   },
   "strategy": {
     "_comment_strategy": "전략 관련 설정 (이름, 타입, 인디케이터, 파라미터 등)",
@@ -131,10 +140,13 @@
       "require_higher_low": false
     },
     "trend_filter": {
-      "_comment_trend_filter": "추세 필터링 관련 옵션 (역추세 차단 등)",
+      "_comment_trend_filter": "2026-09-20: 이전엔 enable/block_counter_trend/min_trend_strength 전부 코드 어디서도 읽히지 않는 죽은 설정이었다. 이번에 adx_period/adx_threshold(ADX 횡보장 필터)를 실제로 구현해서 여기 추가하고 enable을 그 마스터 스위치로 연결했다. block_counter_trend/min_trend_strength는 이번 작업 범위 밖이라 여전히 미착수(별개 기능).",
       "enable": true,
       "block_counter_trend": true,
-      "min_trend_strength": 0.002
+      "min_trend_strength": 0.002,
+      "adx_period": 14,
+      "adx_threshold": 20,
+      "_comment_adx": "5분봉 ADX가 이 값 미만이면(방향성 약한 횡보 구간) 신호와 무관하게 진입을 막는다. config에만 있고 계산 자체가 없던 죽은 설정을 이번에 구현."
     },
     "_comment_entry_mode": "conservative(보수적, 신호필터링) | aggressive(공격적, 추세전환즉시진입)",
     "entry_mode": "aggressive"

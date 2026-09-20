@@ -287,6 +287,23 @@ class SidewaysStrategy:
         #         return_position_msg = f"매도(하락추세) | {return_position_msg}"
         #         return_position_low = "short"
 
+        # (2026-09-20 신규, 사용자 지시 — 횡보장 필터) 5분봉 ADX가 임계값 미만이면
+        # (방향성 약한 횡보 구간) 여기까지 어떤 경로로 나온 신호든 진입 자체를 막는다.
+        # trend_filter.adx_threshold는 이전엔 config에만 있고 ADX 계산 자체가 코드
+        # 어디에도 없던 죽은 설정이었다 — get_adx() 신규 구현으로 실제 연결한다.
+        trend_filter_cfg = self.config.get("strategy", {}).get("trend_filter", {})
+        if trend_filter_cfg.get("enable", False) and (return_position_hgh in ("long", "short") or return_position_low in ("long", "short")):
+            adx_period = trend_filter_cfg.get("adx_period", 14)
+            adx_threshold = trend_filter_cfg.get("adx_threshold", 20)
+            adx_series = technical_indicators.get_adx(df_hgh, period=adx_period)
+            current_adx = adx_series.iloc[-1] if len(adx_series) else None
+            if current_adx is not None and not pd.isna(current_adx) and current_adx < adx_threshold:
+                active_logger.info(f"{Colors.YELLOW}⚪ [ADX 횡보장 필터] 5분봉 ADX={current_adx:.2f} < {adx_threshold} → 진입 차단{Colors.END}")
+                trade_logger.info(f"⚪ [ADX 횡보장 필터] 5분봉 ADX={current_adx:.2f} < {adx_threshold} → 진입 차단")
+                return_position_hgh = None
+                return_position_low = None
+                return_position_msg = f"ADX 횡보장 필터(ADX={current_adx:.2f}<{adx_threshold}) | {return_position_msg}"
+
         # 최종 진입/청산 확인
         if return_position_hgh == "long" or return_position_low == "long":
             active_logger.info(f"{Colors.GREEN}🟢 진입 : 매수 ({current_price}){Colors.END} | {return_position_msg}")
@@ -537,6 +554,16 @@ class SidewaysStrategy:
                         f"(진입가:{existing_entry_price:.4f}, 현재가:{current_entry_price:.4f}) → 추가 분할 진입 보류{Colors.END}"
                     )
                     entry_limit_flag = True
+            # 4. (2026-09-20 신규, 사용자 지시 — 서킷브레이커) 동일 심볼에서 최근
+            #    lookback_minutes 이내에 SL이 consecutive_sl_threshold회 이상 발생했으면,
+            #    가장 최근 SL로부터 pause_minutes 동안 신규 진입 자체를 막는다.
+            cb_active, cb_resume_at = self.position_manager.is_circuit_breaker_active(self.symbol, self.config)
+            if cb_active:
+                active_logger.info(
+                    f"{Colors.RED}🛑 [서킷브레이커] {self.symbol} 최근 SL 연속 발생으로 진입 중단 중 "
+                    f"(재개 예정: {cb_resume_at.strftime('%H:%M:%S') if cb_resume_at else '-'}) → 진입 거절{Colors.END}"
+                )
+                entry_limit_flag = True
 
             if not entry_limit_flag:
                 if not analysis or 'entry_price' not in analysis or 'sl_price' not in analysis:

@@ -25,6 +25,9 @@ class PositionManager:
         # (2026-09-17 추가) 실거래 청산 시 DB에 record_exit()을 남기기 위해 전달받는다.
         # SidewaysStrategy가 생성한 TradeRecorder를 그대로 넘겨받아 공유한다(None이면 기록 생략).
         self.trade_recorder = trade_recorder
+        # (2026-09-20 신규, 사용자 지시 — 서킷브레이커) symbol별 최근 SL 히트 시각 목록.
+        # record_sl_hit()이 채우고 is_circuit_breaker_active()가 소비한다.
+        self.sl_hit_history: Dict[str, list] = {}
         if exchange is not None and symbol is not None:
             self.fetch_and_set_position(exchange, symbol)
 
@@ -54,6 +57,56 @@ class PositionManager:
             return current_price > entry_price
         else:  # short
             return current_price < entry_price
+
+    def record_sl_hit(self, symbol: str):
+        """
+        (2026-09-20 신규, 사용자 지시 — 서킷브레이커) 해당 symbol에 SL 히트가 발생했음을
+        기록한다. `_close_simulated_position()`이 청산 사유가 "SL 도달"일 때 호출한다.
+
+        (알려진 한계) 라이브 모드에서 거래소 자체 조건부 주문(`set_tp_sl_orders`의
+        `tpslMode: "Partial"`)이 Bybit 서버에서 체결되면 봇 코드가 그 이벤트를 아예
+        보지 못한다(별도 발견된 문제, 미해결) — 그래서 이 메서드는 지금은 사실상
+        read_only_mode(시뮬레이션) 경로에서만 정확하게 호출된다. 실거래 경로의 SL 감지는
+        거래소 체결 내역 폴링(fetch_closed_pnl/fetch_my_trades) 같은 별도 보강이 필요하다.
+        """
+        now = datetime.datetime.now()
+        self.sl_hit_history.setdefault(symbol, []).append(now)
+        active_logger.info(f"[서킷브레이커] {symbol} SL 히트 기록 (누적: {len(self.sl_hit_history[symbol])}건)")
+
+    def is_circuit_breaker_active(self, symbol: str, config: Dict) -> Tuple[bool, Optional[datetime.datetime]]:
+        """
+        (2026-09-20 신규, 사용자 지시 — 서킷브레이커) 최근 `lookback_minutes` 이내에
+        `consecutive_sl_threshold`회 이상 SL이 발생했으면, 가장 최근 SL 시각으로부터
+        `pause_minutes` 동안 신규 진입을 막는다. `execute_transaction()`의 진입 제한
+        체크에서 호출한다.
+
+        Returns:
+            (활성화 여부, 재개 예정 시각 또는 None)
+        """
+        cb_cfg = config.get('trading', {}).get('circuit_breaker', {})
+        if not cb_cfg.get('enabled', False):
+            return False, None
+
+        threshold = cb_cfg.get('consecutive_sl_threshold', 2)
+        lookback_min = cb_cfg.get('lookback_minutes', 60)
+        pause_min = cb_cfg.get('pause_minutes', 30)
+
+        now = datetime.datetime.now()
+        lookback_cutoff = now - datetime.timedelta(minutes=lookback_min)
+
+        # 오래된 기록은 정리(메모리 누적 방지)하면서, lookback 구간 안에 남는 것만 센다.
+        history = self.sl_hit_history.get(symbol, [])
+        history = [t for t in history if t >= lookback_cutoff]
+        self.sl_hit_history[symbol] = history
+
+        if len(history) < threshold:
+            return False, None
+
+        latest_sl_time = max(history)
+        resume_at = latest_sl_time + datetime.timedelta(minutes=pause_min)
+        if now < resume_at:
+            return True, resume_at
+        return False, None
 
     def get_current_price(self, exchange, symbol: str) -> float:
         """
@@ -587,6 +640,10 @@ class PositionManager:
                 )
             except Exception as e:
                 active_logger.error(f"[가상청산 기록 실패] {side.upper()} {symbol}: {e}")
+        # (2026-09-20 신규, 사용자 지시 — 서킷브레이커) 청산 사유가 SL 도달이면 기록한다.
+        # TP 도달·트레일링 청산·반대포지션 자동청산은 SL이 아니므로 기록하지 않는다.
+        if exit_reason.startswith("SL 도달"):
+            self.record_sl_hit(symbol)
         self.sim_position[side] = None
 
     def close_simulated_position(self, exchange, symbol, side):

@@ -89,50 +89,103 @@ def get_bollinger_bands(df: pd.DataFrame, window=20, num_std=2):
     lower = ma - num_std * std
     return upper, ma, lower
 
+def _wilder_smooth(series: pd.Series, period: int) -> pd.Series:
+    """
+    Wilder's smoothing(RMA) 공통 구현. RSI·ADX가 공유한다.
+    (2026-09-20, M 작업 중 정립) "첫 유효값은 SMA로 시드하고, 그 이후는
+    avg = (이전avg×(period-1) + 현재값) / period 재귀식으로 이어가는" 방식 —
+    TradingView 등 표준 RSI/ADX가 쓰는 정의와 동일하다.
+    (주의) 입력 series의 워밍업 구간(예: diff()/shift() 직후의 첫 행)은 NaN으로
+    남겨둬야 한다 — 0으로 미리 채워버리면 그 가짜 0이 SMA 시드에 섞여 들어가
+    "period개의 실제 값" 대신 "(period-1)개 실제값 + 가짜 0"으로 시드가 미세하게
+    희석되는 오차가 생긴다(RSI 구현 중 직접 검증하다 발견).
+    """
+    seed = series.rolling(window=period, min_periods=period).mean()
+    vals = series.to_numpy()
+    seed_vals = seed.to_numpy()
+    first_valid = seed.first_valid_index()
+    if first_valid is not None:
+        start = series.index.get_loc(first_valid) + 1
+        for i in range(start, len(series)):
+            seed_vals[i] = (seed_vals[i - 1] * (period - 1) + vals[i]) / period
+    return pd.Series(seed_vals, index=series.index)
+
+
 def get_rsi(df: pd.DataFrame, period=14):
     """
     RSI 계산.
     (2026-09-20 변경, 사용자 결정 — M) 기존엔 단순이동평균(SMA) 기반 RSI(Cutler's RSI)를
     썼다. 틀린 건 아니지만 TradingView 등 대부분 차트 플랫폼이 쓰는 "표준" RSI는
-    Wilder's smoothing(RMA)이라 차트에서 보는 값과 미묘하게 달랐다.
-
-    Wilder's/TradingView의 RMA는 "첫 유효값은 SMA로 시드하고, 그 이후는
-    avg = (이전avg×(period-1) + 현재값) / period 재귀식으로 이어가는" 방식이다.
-    (참고: `.ewm(alpha=1/period, adjust=False)`만 쓰면 이 SMA 시드 없이 첫 데이터부터
-    바로 재귀를 시작해서, alpha가 작을 때(예: period=14) 초기 워밍업 구간의 오차가
-    수십 봉이 지나도 잘 줄어들지 않는다 — 직접 구현해 검증하다가 발견, 그래서 SMA
-    시드 + 재귀식을 명시적으로 구현한다.)
+    Wilder's smoothing(RMA)이라 차트에서 보는 값과 미묘하게 달랐다. `_wilder_smooth()`로
+    통일.
     """
     delta = df['close'].diff()
-    # (주의) delta.where(delta > 0, 0.0) 방식은 delta[0]의 NaN을 0으로 바꿔버려서,
-    # 그게 SMA 시드에 "가짜 0"으로 섞여 들어가 period개의 실제 등락 대신 (period-1)개의
-    # 실제 등락 + 가짜 0으로 시드를 계산하는 미세한 오차가 있었다(직접 검증하다 발견).
-    # clip()은 NaN을 NaN 그대로 보존하므로 rolling(min_periods=period)이 정확히
-    # period개의 "실제" 등락이 모일 때까지 기다리게 된다.
+    # clip()은 delta[0]의 NaN을 NaN 그대로 보존한다(.where(cond, 0.0) 방식은 0으로
+    # 바꿔버려서 _wilder_smooth의 SMA 시드에 가짜 0이 섞이는 오차가 있었다).
     gain = delta.clip(lower=0)
     loss = (-delta).clip(lower=0)
 
-    avg_gain = gain.rolling(window=period, min_periods=period).mean()
-    avg_loss = loss.rolling(window=period, min_periods=period).mean()
-
-    gain_vals = gain.to_numpy()
-    loss_vals = loss.to_numpy()
-    avg_gain_vals = avg_gain.to_numpy()
-    avg_loss_vals = avg_loss.to_numpy()
-
-    # SMA로 시드된 첫 유효 인덱스 이후부터 Wilder's 재귀식으로 이어간다.
-    first_valid = avg_gain.first_valid_index()
-    if first_valid is not None:
-        start = df.index.get_loc(first_valid) + 1
-        for i in range(start, len(df)):
-            avg_gain_vals[i] = (avg_gain_vals[i - 1] * (period - 1) + gain_vals[i]) / period
-            avg_loss_vals[i] = (avg_loss_vals[i - 1] * (period - 1) + loss_vals[i]) / period
-
-    avg_gain = pd.Series(avg_gain_vals, index=df.index)
-    avg_loss = pd.Series(avg_loss_vals, index=df.index)
+    avg_gain = _wilder_smooth(gain, period)
+    avg_loss = _wilder_smooth(loss, period)
     rs = avg_gain / avg_loss
 
     return 100 - (100 / (1 + rs))
+
+
+def get_adx(df: pd.DataFrame, period: int = 14) -> pd.Series:
+    """
+    ADX(Average Directional Index) 계산 — Wilder's 표준 정의.
+    (2026-09-20 신규, 사용자 결정 — 횡보장 필터) config에 `adx_period`/`adx_threshold`가
+    있었지만 ADX를 계산하는 코드 자체가 어디에도 없어 완전히 죽은 설정이었다 — 이번에
+    실제 구현해서 진입 필터(횡보장 차단)에 연결한다.
+
+    절차: True Range(TR)·+DM·-DM 계산 → 셋 다 Wilder's smoothing(`_wilder_smooth`) →
+    +DI/-DI 산출 → DX = 100×|+DI - -DI|/(+DI + -DI) → DX를 다시 Wilder's smoothing한 게 ADX.
+    값이 높을수록(통상 25 이상) 추세가 강하고, 낮을수록(20 이하) 횡보/방향성 약함을 뜻한다.
+
+    Args:
+        df: 'high'/'low'/'close' 컬럼이 있는 OHLCV DataFrame
+        period: ADX 기간(기본 14)
+    Returns:
+        ADX 값 시계열(pd.Series), 워밍업 구간은 NaN
+    """
+    high = df['high']
+    low = df['low']
+    close = df['close']
+    prev_close = close.shift(1)
+    prev_high = high.shift(1)
+    prev_low = low.shift(1)
+
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low - prev_close).abs(),
+    ], axis=1).max(axis=1)
+    # 첫 행은 prev_close가 없어 "진짜" True Range를 계산할 수 없다 — NaN으로 명시해서
+    # _wilder_smooth의 SMA 시드가 이 행을 실제값으로 착각해 섞어넣지 않도록 한다
+    # (RSI에서 잡았던 것과 같은 부류의 워밍업 오차 방지).
+    tr.iloc[0] = float('nan')
+
+    up_move = high - prev_high
+    down_move = prev_low - low
+    plus_dm = pd.Series(0.0, index=df.index)
+    minus_dm = pd.Series(0.0, index=df.index)
+    plus_mask = (up_move > down_move) & (up_move > 0)
+    minus_mask = (down_move > up_move) & (down_move > 0)
+    plus_dm[plus_mask] = up_move[plus_mask]
+    minus_dm[minus_mask] = down_move[minus_mask]
+    plus_dm.iloc[0] = float('nan')
+    minus_dm.iloc[0] = float('nan')
+
+    atr = _wilder_smooth(tr, period)
+    smoothed_plus_dm = _wilder_smooth(plus_dm, period)
+    smoothed_minus_dm = _wilder_smooth(minus_dm, period)
+
+    plus_di = 100 * (smoothed_plus_dm / atr)
+    minus_di = 100 * (smoothed_minus_dm / atr)
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di)
+    adx = _wilder_smooth(dx, period)
+    return adx
 
 def get_rsi_trend(df: pd.DataFrame, recent_n=10):
     """RSI 기반 추세 판단 (상승/하락 비율 기반)"""

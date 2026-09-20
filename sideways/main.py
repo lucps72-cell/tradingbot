@@ -140,27 +140,11 @@ def initialize_exchange(config: Dict) -> ccxt.bybit:
         logger.error(f"Exchange initialization failed: {str(e)}")
         sys.exit(1)
 
-# 진입 제외 필터: 일봉 위치, 변동폭 과도, 중복 거래 방지 등 체크
-def check_exclusion_filters(config, v_action, trades_time):
-    """Apply exclusion filters to prevent unwanted entries.
-    
-    Returns: (True or False)
-    """
-    if v_action is None:
-        return False
-    
-    # Check daily position ratio
-    # 변동폭 과도
-        
-    # Prevent excessive trading
-    # 동일 포지션 내에서 너무 잦은 거래 방지
-    MIN_TRADE_INTERVAL = config['trading'].get('entry_cooldown_sec', 60)  # seconds
-    diff_time = datetime.datetime.now() - datetime.datetime.strptime(trades_time, '%Y-%m-%d %H:%M:%S')
-    if abs(diff_time.total_seconds()) < MIN_TRADE_INTERVAL:
-        logger.info(f"Trade occurred within last {MIN_TRADE_INTERVAL}s. (preventing duplicate entry or excessive trading)\n")
-        return True
-    
-    return False
+# (정리 2026-09-20) check_exclusion_filters()를 여기서 제거했다. 코드 전체에서 단 한 번도
+# 호출되지 않는 죽은 함수였고, 참조하던 config['trading']['entry_cooldown_sec']도 이 함수
+# 말고는 아무도 안 읽는 죽은 설정이었다 — 실제 재진입 방지는 아래 메인 루프에 하드코딩된
+# 180초/60초 창(반대/동일 포지션)이 담당하고 있었다. 이번에 그 하드코딩을 config의
+# `trading.reentry_guard`로 빼서(§ 사용자 지시 3번) 이 죽은 함수·설정은 대체하고 제거한다.
 
 
 # config.json 직접 로드 (v2 소스 미참조)
@@ -262,13 +246,21 @@ def main():
                 current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
                 diff_trades_time = datetime.datetime.strptime(current_time, '%Y-%m-%d %H:%M:%S') - datetime.datetime.strptime(last_trades_time, '%Y-%m-%d %H:%M:%S')
 
+                # (2026-09-20 수정, 사용자 지시 3번) 이전엔 180/60초와 0.1% 가격밴드가
+                # main.py에 하드코딩돼 있었다 — config['trading']['reentry_guard']로 빼서
+                # 조정 가능하게 만들었다(기본값은 기존 하드코딩값과 동일해서 동작 변화 없음).
+                reentry_cfg = config['trading'].get('reentry_guard', {})
+                opposite_cooldown_sec = reentry_cfg.get('opposite_position_cooldown_sec', 180)
+                same_cooldown_sec = reentry_cfg.get('same_position_cooldown_sec', 60)
+                band = reentry_cfg.get('price_band_pct', 0.001)
+
                 # 직전 거래의 포지션, 가격, 시간 대비 waiting 처리 (반대포지션이 일정가격 이내이거나, 동일포지션이 일정가격 이상이면 거래 방지)
                 if (
                     entry_position != last_trade_position
                     and last_trade_price is not None
-                    and current_price <= last_trade_price * 1.001
-                    and current_price >= last_trade_price * 0.999
-                    and abs(diff_trades_time.total_seconds()) <= 180
+                    and current_price <= last_trade_price * (1 + band)
+                    and current_price >= last_trade_price * (1 - band)
+                    and abs(diff_trades_time.total_seconds()) <= opposite_cooldown_sec
                 ):
                     logger.info(f"최근 거래와 반대 포지션 감지. (현재가: {current_price}, 마지막 거래가: {last_trade_price}, 시간 차이: {diff_trades_time})")
                     skipped_count += 1
@@ -278,8 +270,8 @@ def main():
                     # 의도대로 "밴드 밖(위 또는 아래)으로 벗어났으면"이 되도록 OR로 정정.
                     entry_position == last_trade_position
                     and last_trade_price is not None
-                    and (current_price >= last_trade_price * 1.001 or current_price <= last_trade_price * 0.999)
-                    and abs(diff_trades_time.total_seconds()) <= 60
+                    and (current_price >= last_trade_price * (1 + band) or current_price <= last_trade_price * (1 - band))
+                    and abs(diff_trades_time.total_seconds()) <= same_cooldown_sec
                 ):
                     logger.info(f"최근 거래와 동일 포지션 감지. (현재가: {current_price}, 마지막 거래가: {last_trade_price}, 시간 차이: {diff_trades_time})")
                     skipped_count += 1
