@@ -102,7 +102,7 @@ def _wilder_smooth(series: pd.Series, period: int) -> pd.Series:
     """
     seed = series.rolling(window=period, min_periods=period).mean()
     vals = series.to_numpy()
-    seed_vals = seed.to_numpy()
+    seed_vals = seed.to_numpy(copy=True)
     first_valid = seed.first_valid_index()
     if first_valid is not None:
         start = series.index.get_loc(first_valid) + 1
