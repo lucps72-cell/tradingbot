@@ -193,7 +193,15 @@ class TradeRecorder:
         if not self.db:
             return []
         return self.db.get_trades(symbol, limit)
-    
+
+    def get_open_trades(self, symbol: str):
+        """symbol의 열려있는(status='open') 거래 전부를 진입 순서(오래된 것부터)로 반환.
+        (2026-09-21 신규) sim_position 복원용."""
+        if not self.db:
+            return []
+        return self.db.get_open_trades(symbol)
+
+
     def get_statistics(self, symbol: Optional[str] = None):
         """거래 통계 조회"""
         if not self.db:

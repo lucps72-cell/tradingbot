@@ -36,7 +36,14 @@ class TradeDatabase(ABC):
     def get_trades(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict]:
         """거래 기록 조회"""
         pass
-    
+
+    @abstractmethod
+    def get_open_trades(self, symbol: str) -> List[Dict]:
+        """symbol의 열려있는(status='open') 거래 전부를 진입 순서(오래된 것부터)로 반환.
+        (2026-09-21 신규) 봇 재시작 시 read_only_mode의 sim_position(메모리 전용이라
+        재시작하면 사라짐)을 DB의 open 행으로 복원하는 용도."""
+        pass
+
     @abstractmethod
     def get_trade_statistics(self, symbol: Optional[str] = None) -> Dict[str, Any]:
         """거래 통계 계산"""
@@ -250,7 +257,23 @@ class SQLiteDatabase(TradeDatabase):
         except Exception as e:
             active_logger.error(f"SQLite 거래 청산 갱신 실패: {e}")
             return False
-    
+
+    def get_open_trades(self, symbol: str) -> List[Dict]:
+        """symbol의 열려있는(status='open') 거래 전부를 진입 순서(오래된 것부터)로 반환."""
+        try:
+            self.cursor.execute('''
+                SELECT id, side, entry_price, quantity, sl_price, tp_price, entry_time
+                FROM trades
+                WHERE symbol = ? AND status = 'open'
+                ORDER BY id ASC
+            ''', (symbol,))
+            rows = self.cursor.fetchall()
+            columns = ['id', 'side', 'entry_price', 'quantity', 'sl_price', 'tp_price', 'entry_time']
+            return [dict(zip(columns, row)) for row in rows]
+        except Exception as e:
+            active_logger.error(f"SQLite 열린 거래 조회 실패: {e}")
+            return []
+
     def get_trades(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict]:
         """거래 기록 조회"""
         try:
@@ -588,7 +611,25 @@ class MySQLDatabase(TradeDatabase):
         except Exception as e:
             active_logger.error(f"MySQL 거래 청산 갱신 실패: {e}")
             return False
-    
+
+    def get_open_trades(self, symbol: str) -> List[Dict]:
+        """symbol의 열려있는(status='open') 거래 전부를 진입 순서(오래된 것부터)로 반환."""
+        try:
+            if not self.initialized or not self.conn or not self.cursor:
+                active_logger.error("MySQL 열린 거래 조회 실패: 데이터베이스 연결이 초기화되지 않았습니다.")
+                return []
+            self.cursor.execute('''
+                SELECT id, side, entry_price, quantity, sl_price, tp_price, entry_time
+                FROM trades
+                WHERE symbol = %s AND status = 'open'
+                ORDER BY id ASC
+            ''', (symbol,))
+            rows = self.cursor.fetchall()
+            return [dict(row) for row in rows]
+        except Exception as e:
+            active_logger.error(f"MySQL 열린 거래 조회 실패: {e}")
+            return []
+
     def get_trades(self, symbol: Optional[str] = None, limit: int = 100) -> List[Dict]:
         """거래 기록 조회"""
         try:

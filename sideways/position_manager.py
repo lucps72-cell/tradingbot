@@ -30,6 +30,47 @@ class PositionManager:
         self.sl_hit_history: Dict[str, list] = {}
         if exchange is not None and symbol is not None:
             self.fetch_and_set_position(exchange, symbol)
+        # (2026-09-21 신규, 사용자 리포트 — "수익 중인 포지션이 하락해도 안 닫힌다")
+        # sim_position은 메모리 전용이라 봇을 재시작하면 그 순간 열려있던 시뮬레이션
+        # 포지션을 통째로 잊어버렸다 — DB엔 status='open'으로 남지만 simulate_position_
+        # monitor()가 더 이상 추적을 안 해서 어떤 가격에서도 청산이 안 됐다(트레일링 로그도
+        # 재시작 이후 끊김을 실측으로 확인). DB의 open 행으로 재구성해서 재시작해도
+        # 이어서 추적하도록 복원한다.
+        if config is not None and config.get('trading', {}).get('read_only_mode', False) and symbol is not None:
+            self.restore_simulated_positions(symbol)
+
+    def restore_simulated_positions(self, symbol: str):
+        """DB에 status='open'으로 남아있는 분할 진입 행들을 읽어 sim_position을 재구성한다.
+        update_simulated_position()을 진입 순서대로 그대로 재호출해서, 프로세스가 끊기지
+        않았을 때와 동일한 가중평균 단가·최신 SL/TP 상태를 만든다."""
+        if not self.trade_recorder:
+            return
+        try:
+            open_trades = self.trade_recorder.get_open_trades(symbol)
+        except Exception as e:
+            active_logger.error(f"[가상포지션 복원] open 거래 조회 실패: {e}")
+            return
+        if not open_trades:
+            return
+        restored_sides = set()
+        for row in open_trades:
+            side = row.get('side')
+            if side not in ('long', 'short'):
+                continue
+            entry_price = row.get('entry_price')
+            qty = row.get('quantity')
+            if entry_price is None or qty is None:
+                continue
+            self.update_simulated_position(
+                side=side,
+                entry_price=float(entry_price),
+                qty=float(qty),
+                sl_price=float(row['sl_price']) if row.get('sl_price') is not None else None,
+                tp_price=float(row['tp_price']) if row.get('tp_price') is not None else None,
+            )
+            restored_sides.add(side)
+        if restored_sides:
+            active_logger.info(f"[가상포지션 복원] {symbol} {sorted(restored_sides)} 재시작 전 상태로 복원: {self.sim_position}")
 
     def _get_config(self) -> Dict:
         """
