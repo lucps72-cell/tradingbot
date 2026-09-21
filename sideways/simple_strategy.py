@@ -303,6 +303,12 @@ class SidewaysStrategy:
                 return_position_hgh = None
                 return_position_low = None
                 return_position_msg = f"ADX 횡보장 필터(ADX={current_adx:.2f}<{adx_threshold}) | {return_position_msg}"
+            elif current_adx is not None and not pd.isna(current_adx):
+                # (2026-09-21 추가, 사용자 리포트 — 숏 SL 손실 원인 분석 중 관찰성 부족 발견)
+                # 차단될 때(ADX<threshold)만 값을 남기면, "통과는 했지만 사실 추세가 약했는지"를
+                # 나중에 로그로 확인할 방법이 없다 — threshold를 튜닝하려면 통과 케이스의
+                # 실제 ADX 분포도 필요해서 통과 시에도 남긴다.
+                trade_logger.info(f"[ADX 횡보장 필터] 5분봉 ADX={current_adx:.2f} >= {adx_threshold} → 통과")
 
         # 최종 진입/청산 확인
         if return_position_hgh == "long" or return_position_low == "long":
