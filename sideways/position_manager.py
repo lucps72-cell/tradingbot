@@ -640,9 +640,14 @@ class PositionManager:
                 )
             except Exception as e:
                 active_logger.error(f"[가상청산 기록 실패] {side.upper()} {symbol}: {e}")
-        # (2026-09-20 신규, 사용자 지시 — 서킷브레이커) 청산 사유가 SL 도달이면 기록한다.
-        # TP 도달·트레일링 청산·반대포지션 자동청산은 SL이 아니므로 기록하지 않는다.
-        if exit_reason.startswith("SL 도달"):
+        # (2026-09-20 신규, 사용자 지시 — 서킷브레이커, 2026-09-21 버그수정) 청산 사유가
+        # SL 도달이고 실제로 손실이었을 때만 기록한다. update_trailing_stop()이 이익 구간에서
+        # sl_price를 진입가 위(롱)/아래(숏)로 끌어올려 놓으면, 그 트레일된 값에 현재가가
+        # 닿아도 위 hit_reason 분기(line ~595)는 여전히 "SL 도달" 문자열을 쓴다 — 즉 수익을
+        # 지키며 청산된 트레일링 케이스가 문자열만으로는 "손절"과 구분되지 않는다(실제 발견:
+        # 2026-09-21 실거래 로그에서 +17.04/+13.61 USDT 익절 건이 "SL 도달"로 기록돼 서킷
+        # 브레이커 카운트를 오염시킴). 실현손익 부호로 한 번 더 걸러서 진짜 손절만 센다.
+        if exit_reason.startswith("SL 도달") and not self.is_side_profitable(side, pos['entry_price'], exit_price):
             self.record_sl_hit(symbol)
         self.sim_position[side] = None
 
