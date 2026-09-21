@@ -295,11 +295,18 @@ class SidewaysStrategy:
         if trend_filter_cfg.get("enable", False) and (return_position_hgh in ("long", "short") or return_position_low in ("long", "short")):
             adx_period = trend_filter_cfg.get("adx_period", 14)
             adx_threshold = trend_filter_cfg.get("adx_threshold", 20)
-            adx_series = technical_indicators.get_adx(df_hgh, period=adx_period)
+            # (2026-09-21 추가, 사용자 지시 — 5분봉 ADX는 후행이라 강한 추세 직후 좁은
+            # 박스권으로 전환되는 구간을 못 잡는다는 게 실거래 로그로 확인됨: 5분봉 ADX가
+            # 56~76로 유지되는 동안 실제로는 19:12부터 1분봉 ADX가 이미 20 밑으로 떨어져
+            # 있었음. adx_timeframe="1m"이면 1분봉으로 계산해서 더 빠르게 반응하게 한다
+            # (기본값 "5m"은 기존 동작과 완전히 동일 — 설정 안 바꾸면 동작 변화 없음).
+            adx_timeframe = trend_filter_cfg.get("adx_timeframe", "5m")
+            adx_source_df = df_low if adx_timeframe == "1m" else df_hgh
+            adx_series = technical_indicators.get_adx(adx_source_df, period=adx_period)
             current_adx = adx_series.iloc[-1] if len(adx_series) else None
             if current_adx is not None and not pd.isna(current_adx) and current_adx < adx_threshold:
-                active_logger.info(f"{Colors.YELLOW}⚪ [ADX 횡보장 필터] 5분봉 ADX={current_adx:.2f} < {adx_threshold} → 진입 차단{Colors.END}")
-                trade_logger.info(f"⚪ [ADX 횡보장 필터] 5분봉 ADX={current_adx:.2f} < {adx_threshold} → 진입 차단")
+                active_logger.info(f"{Colors.YELLOW}⚪ [ADX 횡보장 필터] {adx_timeframe} ADX={current_adx:.2f} < {adx_threshold} → 진입 차단{Colors.END}")
+                trade_logger.info(f"⚪ [ADX 횡보장 필터] {adx_timeframe} ADX={current_adx:.2f} < {adx_threshold} → 진입 차단")
                 return_position_hgh = None
                 return_position_low = None
                 return_position_msg = f"ADX 횡보장 필터(ADX={current_adx:.2f}<{adx_threshold}) | {return_position_msg}"
@@ -308,7 +315,7 @@ class SidewaysStrategy:
                 # 차단될 때(ADX<threshold)만 값을 남기면, "통과는 했지만 사실 추세가 약했는지"를
                 # 나중에 로그로 확인할 방법이 없다 — threshold를 튜닝하려면 통과 케이스의
                 # 실제 ADX 분포도 필요해서 통과 시에도 남긴다.
-                trade_logger.info(f"[ADX 횡보장 필터] 5분봉 ADX={current_adx:.2f} >= {adx_threshold} → 통과")
+                trade_logger.info(f"[ADX 횡보장 필터] {adx_timeframe} ADX={current_adx:.2f} >= {adx_threshold} → 통과")
 
         # 최종 진입/청산 확인
         if return_position_hgh == "long" or return_position_low == "long":
