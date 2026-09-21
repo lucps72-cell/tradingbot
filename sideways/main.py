@@ -220,7 +220,6 @@ def main():
     current_trend = None
     success_count = 0
     skipped_count = 0
-    repeat_entry_count = 0  # 동일 포지션 반복 진입 카운트
     loop_count = 0
     rate_limit_backoff_sec = config.get('api', {}).get('rate_limit_backoff_sec', 60)
     start_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -277,42 +276,46 @@ def main():
                     skipped_count += 1
                 else:
                     if entry_position != last_trade_position:
-                        repeat_entry_count = 0  # 포지션 변경 시 카운트 초기화
-                    else:
-                        repeat_entry_count += 1  # 동일 포지션 반복 시 카운트 증가
-                    entry_split_count = config['trading'].get('entry_split_count', 1)
-                    
-                    if repeat_entry_count < entry_split_count:
-                        if entry_position != last_trade_position:
-                            requested_symbol = symbol.replace('/', '').split(':')[0]
-                            send_telegram(f"{requested_symbol} {entry_position} 신호: {current_price} ")
+                        requested_symbol = symbol.replace('/', '').split(':')[0]
+                        send_telegram(f"{requested_symbol} {entry_position} 신호: {current_price} ")
 
-                        # (2026-09-17 정리, Finding G) 이전엔 여기가 "if True: #read_only_mode...
-                        # is False:"라는 죽은 분기였다 — 조건이 상수라 read_only_mode와 무관하게
-                        # 항상 execute_transaction()이 호출됐지만, 실제 주문 실행 여부는
-                        # execute_transaction() 내부(execute_trade 호출 직전)에서 이미
-                        # read_only_mode를 정확히 재검사하고 있어서 위험하지는 않았다.
-                        # 바깥 조건을 실제 read_only_mode 체크로 "풀되", execute_transaction()
-                        # 자체는 모드와 무관하게 항상 호출해야 한다 — 그 안에서
-                        # record_entry()(거래 기록 DB 저장)와 update_simulated_position()
-                        # (2026-09-17 신규 페이퍼 트레이딩 가상 포지션 추적)가 실행되기 때문에,
-                        # 여기서 호출을 건너뛰면 시뮬레이션 모드의 진입 기록·가상 포지션 추적이
-                        # 전부 멈춰버린다(실제 발견한 회귀 위험 — 반영 전 확인함).
-                        rtn_success_count, rtn_skipped_count = strategy.execute_transaction(entry_position, close_position)
-                        success_count += rtn_success_count
-                        skipped_count += rtn_skipped_count
-                        if rtn_success_count > 0:
-                            last_trade_position = entry_position
-                            last_trade_price = current_price
-                            last_trades_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        elif config['trading'].get('read_only_mode', False):
-                            # 시뮬레이션 모드에서는 rtn_success_count가 항상 0이다(성공 카운트는
-                            # execute_transaction() 내부의 "read_only_mode is False" 블록에서만
-                            # 증가함). 그래도 반복 진입 방지 로직(위쪽 entry_position ==
-                            # last_trade_position 비교)이 동작하도록 여기서 직접 갱신해 준다.
-                            last_trade_position = entry_position
-                            last_trade_price = current_price
-                            last_trades_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    # (2026-09-17 정리, Finding G) 이전엔 여기가 "if True: #read_only_mode...
+                    # is False:"라는 죽은 분기였다 — 조건이 상수라 read_only_mode와 무관하게
+                    # 항상 execute_transaction()이 호출됐지만, 실제 주문 실행 여부는
+                    # execute_transaction() 내부(execute_trade 호출 직전)에서 이미
+                    # read_only_mode를 정확히 재검사하고 있어서 위험하지는 않았다.
+                    # 바깥 조건을 실제 read_only_mode 체크로 "풀되", execute_transaction()
+                    # 자체는 모드와 무관하게 항상 호출해야 한다 — 그 안에서
+                    # record_entry()(거래 기록 DB 저장)와 update_simulated_position()
+                    # (2026-09-17 신규 페이퍼 트레이딩 가상 포지션 추적)가 실행되기 때문에,
+                    # 여기서 호출을 건너뛰면 시뮬레이션 모드의 진입 기록·가상 포지션 추적이
+                    # 전부 멈춰버린다(실제 발견한 회귀 위험 — 반영 전 확인함).
+                    # (2026-09-21 추가 수정, 사용자 리포트 — "매도 진입이 안 된다") 이전엔 여기서
+                    # main.py 자체 repeat_entry_count(같은 방향 신호가 쿨다운을 통과한 "시도"
+                    # 횟수)가 entry_split_count에 도달하면 execute_transaction() 호출 자체를
+                    # 조용히 건너뛰었다. 이 카운터는 "실제 성공한 진입 수"가 아니라 "시도 횟수"라,
+                    # execute_transaction() 내부에서 총액초과 등으로 거절된 시도도 그대로
+                    # 카운트에 들어가서 — 실제로는 분할이 2회만 성공했는데 카운터가 먼저 3에
+                    # 도달해 그 이후 같은 방향 신호는 로그 한 줄 없이 반대 방향 신호가 뜨기
+                    # 전까지 영원히 막혔다(실거래 로그로 재현 확인). execute_transaction() 안에
+                    # 이미 DB/포지션 상태 기반의 정확한 entry_count/split_count 체크가 있고
+                    # 거절 시 이유도 로그로 남긴다(R에서 단위불일치 버그 수정 완료) — 그 안쪽
+                    # 체크 하나로 충분하므로 바깥의 부정확하고 조용한 이 게이트를 제거한다.
+                    rtn_success_count, rtn_skipped_count = strategy.execute_transaction(entry_position, close_position)
+                    success_count += rtn_success_count
+                    skipped_count += rtn_skipped_count
+                    if rtn_success_count > 0:
+                        last_trade_position = entry_position
+                        last_trade_price = current_price
+                        last_trades_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    elif config['trading'].get('read_only_mode', False):
+                        # 시뮬레이션 모드에서는 rtn_success_count가 항상 0이다(성공 카운트는
+                        # execute_transaction() 내부의 "read_only_mode is False" 블록에서만
+                        # 증가함). 그래도 반복 진입 방지 로직(위쪽 entry_position ==
+                        # last_trade_position 비교)이 동작하도록 여기서 직접 갱신해 준다.
+                        last_trade_position = entry_position
+                        last_trade_price = current_price
+                        last_trades_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
             if config['trading'].get('read_only_mode', False) is False:
                 # 트레일링 스탑 모니터링 및 조정
