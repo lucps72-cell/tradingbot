@@ -308,8 +308,10 @@ class SidewaysStrategy:
                 # (2026-09-21 추가, 사용자 지시) ADX값만으론 뭘 막았는지 알 수 없어서
                 # 차단 직전의 상위(5m)/하위(1m) 신호를 같이 남긴다(None으로 지우기 전에 기록).
                 blocked_desc = f"상위:{return_position_hgh or '-'} 하위:{return_position_low or '-'}"
-                active_logger.info(f"{Colors.YELLOW}⚪ [ADX 횡보장 필터] {adx_timeframe} ADX={current_adx:.2f} < {adx_threshold} → 진입 차단 ({blocked_desc}){Colors.END}")
-                trade_logger.info(f"⚪ [ADX 횡보장 필터] {adx_timeframe} ADX={current_adx:.2f} < {adx_threshold} → 진입 차단 ({blocked_desc})")
+                # (2026-09-22 추가, 사용자 지시) 차단 시점 가격도 같이 남긴다 — ADX값만으론
+                # 그 시점이 어떤 가격대였는지 알 수 없어서 나중에 캔들과 대조하기 번거로웠음.
+                active_logger.info(f"{Colors.YELLOW}⚪ [ADX 횡보장 필터] {adx_timeframe} ADX={current_adx:.2f} < {adx_threshold} → 진입 차단 (현재가:{current_price}, {blocked_desc}){Colors.END}")
+                trade_logger.info(f"⚪ [ADX 횡보장 필터] {adx_timeframe} ADX={current_adx:.2f} < {adx_threshold} → 진입 차단 (현재가:{current_price}, {blocked_desc})")
                 return_position_hgh = None
                 return_position_low = None
                 return_position_msg = f"ADX 횡보장 필터(ADX={current_adx:.2f}<{adx_threshold}) | {return_position_msg}"
